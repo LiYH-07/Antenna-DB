@@ -19,8 +19,7 @@
      ║  🔧 CONFIG — 只需修改這一行 SHEET_ID    ║
      ╚══════════════════════════════════════════╝ -->
 <script>
-  const SHEET_ID = "1UiUwGttP9NpmtEhv9rJmGj4Q_glDccJrgcp5jXLXO10"; // ← 貼上你的 Google Sheet ID
-
+  const SHEET_ID = "YOUR_GOOGLE_SHEET_ID_HERE"; // ← 貼上你的 Google Sheet ID
 </script>
 
 <style>
@@ -233,7 +232,17 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* ── FILTER TABS ── */
-  .filter-row { display: flex; gap: 6px; padding: 0 16px 12px; overflow-x: auto; scrollbar-width: none; }
+  .filter-section { padding: 0 16px 12px; }
+  .filter-group-tabs { display: flex; gap: 0; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; width: fit-content; }
+  .filter-group-tab {
+    padding: 5px 14px; font-size: 11px; font-family: var(--font-mono);
+    background: var(--bg2); color: var(--text3);
+    cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    letter-spacing: 0.06em; border: none;
+  }
+  .filter-group-tab:not(:last-child) { border-right: 1px solid var(--border); }
+  .filter-group-tab.active { background: var(--bg3); color: var(--text); }
+  .filter-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
   .filter-row::-webkit-scrollbar { display: none; }
   .filter-chip {
     padding: 5px 12px; border-radius: 20px; font-size: 12px; font-family: var(--font-body);
@@ -241,6 +250,7 @@
     white-space: nowrap; cursor: pointer; transition: all 0.15s; flex-shrink: 0;
   }
   .filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .filter-chip.port-chip.active { background: var(--blue); border-color: var(--blue); }
 
   /* ── NO RESULTS ── */
   .no-results { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
@@ -288,9 +298,15 @@
     </div>
   </div>
 
-  <!-- FILTER TABS -->
-  <div class="filter-row" id="filterRow">
-    <div class="filter-chip active" onclick="setFilter('all', this)">全部</div>
+  <!-- FILTER SECTION -->
+  <div class="filter-section" id="filterSection">
+    <div class="filter-group-tabs">
+      <div class="filter-group-tab active" onclick="switchFilterGroup('mfr', this)">廠商</div>
+      <div class="filter-group-tab" onclick="switchFilterGroup('port', this)">PORT 數</div>
+    </div>
+    <div class="filter-row" id="filterRow">
+      <div class="filter-chip active" onclick="setFilter('all', this)">全部</div>
+    </div>
   </div>
 
   <!-- LIST -->
@@ -425,7 +441,13 @@ function updateFooter() {
 // FILTER
 // ═══════════════════════════════════════════════
 
+let activeFilterGroup = "mfr"; // "mfr" | "port"
+
 function buildFilters() {
+  buildMfrFilters();
+}
+
+function buildMfrFilters() {
   const mfrs = [...new Set(masterData.map(a => a.Manufacturer).filter(Boolean))];
   const row = document.getElementById("filterRow");
   row.innerHTML = `<div class="filter-chip active" onclick="setFilter('all', this)">全部</div>`;
@@ -433,6 +455,27 @@ function buildFilters() {
     const short = m.replace(/\s*\(.*\)/, "").trim();
     row.innerHTML += `<div class="filter-chip" onclick="setFilter('${m}', this)">${short}</div>`;
   });
+}
+
+function buildPortFilters() {
+  const ports = [...new Set(masterData.map(a => a.Port_Count).filter(Boolean))]
+    .map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
+  const row = document.getElementById("filterRow");
+  row.innerHTML = `<div class="filter-chip port-chip active" onclick="setFilter('all', this)">全部</div>`;
+  ports.forEach(p => {
+    row.innerHTML += `<div class="filter-chip port-chip" onclick="setFilter('port:${p}', this)">${p} Port</div>`;
+  });
+}
+
+function switchFilterGroup(group, el) {
+  activeFilterGroup = group;
+  document.querySelectorAll(".filter-group-tab").forEach(t => t.classList.remove("active"));
+  el.classList.add("active");
+  activeFilter = "all";
+  openCardId = null;
+  if (group === "mfr") buildMfrFilters();
+  else buildPortFilters();
+  renderList();
 }
 
 function setFilter(val, el) {
@@ -450,7 +493,15 @@ function setFilter(val, el) {
 function getFilteredAntennas() {
   const q = document.getElementById("searchInput").value.toLowerCase().trim();
   return masterData.filter(a => {
-    const matchFilter = activeFilter === "all" || a.Manufacturer === activeFilter;
+    let matchFilter = false;
+    if (activeFilter === "all") {
+      matchFilter = true;
+    } else if (activeFilter.startsWith("port:")) {
+      const portNum = activeFilter.replace("port:", "");
+      matchFilter = String(a.Port_Count) === portNum;
+    } else {
+      matchFilter = a.Manufacturer === activeFilter;
+    }
     const matchSearch = !q || a.Antenna_Name.toLowerCase().includes(q) ||
       (a.Manufacturer || "").toLowerCase().includes(q) ||
       (a.Notes || "").toLowerCase().includes(q);
