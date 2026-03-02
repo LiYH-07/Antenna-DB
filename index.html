@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#0a0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Antenna DB">
+<meta name="application-name" content="Antenna DB">
+<meta name="description" content="天線規格查詢工具 — 快速查閱多頻段天線參數">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Antenna DB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+
+<!-- ╔══════════════════════════════════════════╗
+     ║  🔧 CONFIG — 只需修改這一行 SHEET_ID    ║
+     ╚══════════════════════════════════════════╝ -->
+<script>
+  const SHEET_ID = "https://docs.google.com/spreadsheets/d/1UiUwGttP9NpmtEhv9rJmGj4Q_glDccJrgcp5jXLXO10/edit?gid=1101482151#gid=1101482151"; // ← 貼上你的 Google Sheet ID
+</script>
+
+<style>
+  :root {
+    --bg: #0a0f14;
+    --bg2: #0f1620;
+    --bg3: #141e2a;
+    --border: #1e2d3d;
+    --border2: #243447;
+    --text: #c8d8e8;
+    --text2: #7a8fa0;
+    --text3: #3a5060;
+    --accent: #e8820a;
+    --accent2: #f5a030;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --blue: #3d9de8;
+    --lb-color: #3d9de8;
+    --mb-color: #9b59b6;
+    --hb-color: #e8820a;
+    --radius: 10px;
+    --font-mono: 'DM Mono', 'Courier New', monospace;
+    --font-body: 'Barlow', sans-serif;
+    --font-cond: 'Barlow Condensed', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 16px 12px;
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .header-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .logo-mark {
+    width: 34px; height: 34px;
+    background: var(--accent);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .header-title { font-family: var(--font-cond); font-size: 18px; font-weight: 700; color: #fff; letter-spacing: 0.06em; }
+  .header-sub { font-family: var(--font-mono); font-size: 9px; color: var(--text3); letter-spacing: 0.12em; }
+  .data-status { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--text3); }
+  .data-status.ok { color: var(--green); }
+  .data-status.err { color: var(--red); }
+
+  /* ── SEARCH ── */
+  .search-wrap { position: relative; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 14px; pointer-events: none; }
+  .search-input {
+    width: 100%; padding: 10px 12px 10px 36px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: var(--font-body);
+    font-size: 15px; outline: none; transition: border 0.2s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--text3); }
+
+  /* ── MAIN LAYOUT ── */
+  .container { max-width: 680px; margin: 0 auto; }
+
+  /* ── ANTENNA LIST ── */
+  .list-section { padding: 16px; }
+  .section-label {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text3);
+    letter-spacing: 0.12em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .antenna-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.15s;
+    cursor: pointer;
+    user-select: none;
+  }
+  .antenna-card:active { transform: scale(0.985); }
+  .antenna-card.active { border-color: var(--accent); }
+
+  .card-header {
+    padding: 14px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .card-badge {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .card-info { flex: 1; min-width: 0; }
+  .card-name {
+    font-family: var(--font-cond); font-size: 17px; font-weight: 700;
+    color: #fff; letter-spacing: 0.04em;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .card-mfr { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .card-tags { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+  .tag {
+    font-family: var(--font-mono); font-size: 9px; font-weight: 500;
+    padding: 2px 7px; border-radius: 3px; letter-spacing: 0.06em;
+  }
+  .tag-port { background: rgba(61,157,232,0.15); color: var(--blue); border: 1px solid rgba(61,157,232,0.25); }
+  .tag-weight { background: rgba(200,216,232,0.08); color: var(--text2); border: 1px solid var(--border); }
+  .tag-dim { background: rgba(200,216,232,0.08); color: var(--text2); border: 1px solid var(--border); }
+
+  .chevron {
+    color: var(--text3); font-size: 14px; transition: transform 0.25s;
+    flex-shrink: 0;
+  }
+  .antenna-card.active .chevron { transform: rotate(180deg); color: var(--accent); }
+
+  /* ── DETAIL PANEL ── */
+  .detail-panel {
+    max-height: 0; overflow: hidden;
+    transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
+  }
+  .detail-panel.open { max-height: 2000px; }
+  .detail-inner {
+    border-top: 1px solid var(--border);
+    padding: 16px;
+    background: var(--bg);
+  }
+
+  /* General specs grid */
+  .spec-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-bottom: 16px;
+  }
+  .spec-item {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
+  }
+  .spec-item.full { grid-column: 1 / -1; }
+  .spec-label { font-family: var(--font-mono); font-size: 9px; color: var(--text3); letter-spacing: 0.1em; margin-bottom: 3px; }
+  .spec-val { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.4; }
+  .spec-val.mono { font-family: var(--font-mono); font-size: 12px; }
+
+  /* Band table */
+  .band-label {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text3);
+    letter-spacing: 0.1em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  }
+  .band-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .band-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px 8px; }
+
+  .band-table {
+    width: 100%; border-collapse: collapse; font-size: 11px;
+    min-width: 560px;
+  }
+  .band-table th {
+    background: var(--bg3); color: var(--text3);
+    font-family: var(--font-mono); font-size: 9px; font-weight: 500;
+    padding: 8px 10px; text-align: left;
+    border-bottom: 1px solid var(--border); letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+  .band-table td {
+    padding: 9px 10px; border-bottom: 1px solid var(--border2);
+    color: var(--text); vertical-align: top;
+    font-family: var(--font-mono); font-size: 11px;
+  }
+  .band-table tr:last-child td { border-bottom: none; }
+  .band-table tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+
+  /* Band ID pill */
+  .band-pill {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 9px; font-weight: 600; letter-spacing: 0.08em;
+    white-space: nowrap;
+  }
+  .band-LB { background: rgba(61,157,232,0.2); color: var(--lb-color); border: 1px solid rgba(61,157,232,0.3); }
+  .band-MB { background: rgba(155,89,182,0.2); color: var(--mb-color); border: 1px solid rgba(155,89,182,0.3); }
+  .band-HB, .band-HB_Y1, .band-HB_Y2 { background: rgba(232,130,10,0.2); color: var(--accent2); border: 1px solid rgba(232,130,10,0.3); }
+
+  .freq-range { color: #fff; font-weight: 500; white-space: nowrap; }
+  .gain-val { color: var(--accent2); }
+  .bw-val { color: var(--blue); }
+
+  /* Notes section */
+  .notes-box {
+    background: rgba(232,130,10,0.06); border: 1px solid rgba(232,130,10,0.2);
+    border-radius: 8px; padding: 10px 12px; margin-top: 12px;
+  }
+  .notes-box .spec-label { color: var(--accent); }
+  .notes-box .spec-val { color: var(--text2); font-size: 12px; line-height: 1.5; }
+
+  /* ── EMPTY / LOADING ── */
+  .state-box {
+    text-align: center; padding: 60px 20px;
+    color: var(--text3); font-family: var(--font-mono); font-size: 12px;
+  }
+  .state-box .icon { font-size: 40px; margin-bottom: 12px; display: block; }
+  .spinner { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── FILTER TABS ── */
+  .filter-row { display: flex; gap: 6px; padding: 0 16px 12px; overflow-x: auto; scrollbar-width: none; }
+  .filter-row::-webkit-scrollbar { display: none; }
+  .filter-chip {
+    padding: 5px 12px; border-radius: 20px; font-size: 12px; font-family: var(--font-body);
+    border: 1px solid var(--border); background: var(--bg2); color: var(--text2);
+    white-space: nowrap; cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+  }
+  .filter-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+
+  /* ── NO RESULTS ── */
+  .no-results { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+
+  /* ── FOOTER ── */
+  .footer {
+    padding: 20px 16px; text-align: center;
+    font-family: var(--font-mono); font-size: 9px; color: var(--text3);
+    border-top: 1px solid var(--border); margin-top: 8px;
+    letter-spacing: 0.08em;
+  }
+
+  /* ── ANIMATIONS ── */
+  .antenna-card { animation: cardIn 0.3s ease both; }
+  @keyframes cardIn { from { opacity:0; transform: translateY(8px); } to { opacity:1; transform: none; } }
+
+  /* ── PULL TO REFRESH hint ── */
+  .refresh-btn {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 10px; color: var(--text3);
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; cursor: pointer; transition: all 0.15s;
+    margin-left: auto;
+  }
+  .refresh-btn:active { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div class="logo-mark">📡</div>
+      <div>
+        <div class="header-title">ANTENNA DB</div>
+        <div class="header-sub">SPEC REFERENCE TOOL</div>
+      </div>
+      <button class="refresh-btn" onclick="loadData(true)">⟳ 重整</button>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" type="text" id="searchInput"
+        placeholder="搜尋型號、製造商…" oninput="renderList()" autocomplete="off" autocorrect="off">
+    </div>
+  </div>
+
+  <!-- FILTER TABS -->
+  <div class="filter-row" id="filterRow">
+    <div class="filter-chip active" onclick="setFilter('all', this)">全部</div>
+  </div>
+
+  <!-- LIST -->
+  <div class="list-section">
+    <div class="section-label" id="countLabel">天線列表</div>
+    <div id="listContainer">
+      <div class="state-box">
+        <span class="icon"><span class="spinner">⚙️</span></span>
+        正在載入資料…
+      </div>
+    </div>
+  </div>
+
+  <div class="footer" id="footer">
+    資料來源：Google Sheets &nbsp;|&nbsp; 自動同步
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// DATA LAYER — fetch from Google Sheets CSV
+// ═══════════════════════════════════════════════
+
+let masterData = [];
+let bandData = [];
+let activeFilter = "all";
+let openCardId = null;
+
+function csvURL(sheetName) {
+  return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+}
+
+function parseCSV(text) {
+  const rows = [];
+  const lines = text.split('\n');
+  const headers = parseCSVRow(lines[0]);
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const vals = parseCSVRow(line);
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h] = vals[idx] || ""; });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function parseCSVRow(row) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let i = 0; i < row.length; i++) {
+    const c = row[i];
+    if (c === '"') {
+      if (inQ && row[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+async function fetchSheet(name) {
+  const resp = await fetch(csvURL(name));
+  if (!resp.ok) throw new Error(`Cannot fetch sheet: ${name}`);
+  return parseCSV(await resp.text());
+}
+
+async function loadData(forceRefresh = false) {
+  const cacheKey = `antenna_db_${SHEET_ID}`;
+  const cacheTimeKey = `antenna_db_time_${SHEET_ID}`;
+  const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  // Try cache
+  if (!forceRefresh) {
+    const cached = sessionStorage.getItem(cacheKey);
+    const cachedTime = sessionStorage.getItem(cacheTimeKey);
+    if (cached && cachedTime && Date.now() - Number(cachedTime) < CACHE_TTL) {
+      const parsed = JSON.parse(cached);
+      masterData = parsed.master;
+      bandData = parsed.band;
+      buildFilters();
+      renderList();
+      setStatus("ok");
+      return;
+    }
+  }
+
+  setStatus("loading");
+  try {
+    const [master, band] = await Promise.all([
+      fetchSheet("Antenna_Master"),
+      fetchSheet("Antenna_Band_Spec")
+    ]);
+    masterData = master.filter(r => r.Antenna_Name);
+    bandData = band.filter(r => r.Antenna_Name);
+    sessionStorage.setItem(cacheKey, JSON.stringify({ master: masterData, band: bandData }));
+    sessionStorage.setItem(cacheTimeKey, String(Date.now()));
+    buildFilters();
+    renderList();
+    setStatus("ok");
+    updateFooter();
+  } catch (err) {
+    console.error(err);
+    setStatus("err");
+    document.getElementById("listContainer").innerHTML = `
+      <div class="state-box">
+        <span class="icon">⚠️</span>
+        無法載入資料<br>
+        <span style="font-size:10px;color:var(--text3)">請確認 SHEET_ID 設定及 Google Sheet 公開權限</span>
+        <br><br>
+        <button onclick="loadData(true)" style="background:var(--accent);border:none;color:#fff;padding:8px 18px;border-radius:6px;font-family:var(--font-body);cursor:pointer;">重試</button>
+      </div>`;
+  }
+}
+
+function setStatus(state) {
+  const el = document.querySelector('.data-status') || (() => {
+    const s = document.createElement('div');
+    s.className = 'data-status'; document.querySelector('.header-top').appendChild(s); return s;
+  })();
+  el.className = `data-status ${state}`;
+  el.textContent = state === "ok" ? "● LIVE" : state === "err" ? "● ERR" : "…";
+}
+
+function updateFooter() {
+  const now = new Date();
+  document.getElementById("footer").textContent =
+    `更新時間：${now.toLocaleDateString('zh-TW')} ${now.toLocaleTimeString('zh-TW', {hour:'2-digit',minute:'2-digit'})}  ·  資料來源：Google Sheets`;
+}
+
+// ═══════════════════════════════════════════════
+// FILTER
+// ═══════════════════════════════════════════════
+
+function buildFilters() {
+  const mfrs = [...new Set(masterData.map(a => a.Manufacturer).filter(Boolean))];
+  const row = document.getElementById("filterRow");
+  row.innerHTML = `<div class="filter-chip active" onclick="setFilter('all', this)">全部</div>`;
+  mfrs.forEach(m => {
+    const short = m.replace(/\s*\(.*\)/, "").trim();
+    row.innerHTML += `<div class="filter-chip" onclick="setFilter('${m}', this)">${short}</div>`;
+  });
+}
+
+function setFilter(val, el) {
+  activeFilter = val;
+  document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+  el.classList.add("active");
+  openCardId = null;
+  renderList();
+}
+
+// ═══════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════
+
+function getFilteredAntennas() {
+  const q = document.getElementById("searchInput").value.toLowerCase().trim();
+  return masterData.filter(a => {
+    const matchFilter = activeFilter === "all" || a.Manufacturer === activeFilter;
+    const matchSearch = !q || a.Antenna_Name.toLowerCase().includes(q) ||
+      (a.Manufacturer || "").toLowerCase().includes(q) ||
+      (a.Notes || "").toLowerCase().includes(q);
+    return matchFilter && matchSearch;
+  });
+}
+
+function renderList() {
+  const list = getFilteredAntennas();
+  const container = document.getElementById("listContainer");
+  const label = document.getElementById("countLabel");
+  label.textContent = `${list.length} 支天線`;
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="no-results">🔍 找不到符合的天線</div>`;
+    return;
+  }
+
+  container.innerHTML = list.map((a, i) =>
+    renderCard(a, i)
+  ).join("");
+
+  // re-attach open state
+  if (openCardId) {
+    const el = document.getElementById(`card-${openCardId}`);
+    if (el) {
+      el.classList.add("active");
+      el.querySelector(".detail-panel").classList.add("open");
+    }
+  }
+}
+
+function renderCard(a, idx) {
+  const bands = bandData.filter(b => b.Antenna_Name === a.Antenna_Name);
+  const id = a.Antenna_Name.replace(/\s/g, "_");
+  const dimStr = [a.Length_mm, a.Width_mm, a.Depth_mm].filter(Boolean).map(v => `${v}`).join(" × ");
+
+  return `
+  <div class="antenna-card" id="card-${id}" style="animation-delay:${idx * 0.04}s" onclick="toggleCard('${id}')">
+    <div class="card-header">
+      <div class="card-badge">📡</div>
+      <div class="card-info">
+        <div class="card-name">${a.Antenna_Name}</div>
+        <div class="card-mfr">${a.Manufacturer || "—"}</div>
+        <div class="card-tags">
+          ${a.Port_Count ? `<span class="tag tag-port">${a.Port_Count}P</span>` : ""}
+          ${a.Weight_kg ? `<span class="tag tag-weight">⚖ ${a.Weight_kg} kg</span>` : ""}
+          ${dimStr ? `<span class="tag tag-dim">📐 ${dimStr} mm</span>` : ""}
+        </div>
+      </div>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="detail-panel" id="panel-${id}">
+      <div class="detail-inner">
+        ${renderSpecs(a)}
+        ${renderBandTable(bands)}
+        ${a.Notes ? `
+        <div class="notes-box">
+          <div class="spec-label">備註</div>
+          <div class="spec-val">${a.Notes}</div>
+        </div>` : ""}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderSpecs(a) {
+  const dimStr = [a.Length_mm, a.Width_mm, a.Depth_mm].filter(Boolean).join(" × ");
+  const items = [
+    { label: "MANUFACTURER", val: a.Manufacturer, full: false },
+    { label: "PORT COUNT", val: a.Port_Count, full: false },
+    { label: "WEIGHT", val: a.Weight_kg ? `${a.Weight_kg} kg` : "", full: false },
+    { label: "DIMENSIONS (L×W×D mm)", val: dimStr, full: false },
+    { label: "CONNECTOR", val: a.Connector_Type, mono: true, full: true },
+    { label: "MOUNTING", val: a.Mounting_Type, full: true },
+  ].filter(i => i.val);
+
+  return `<div class="spec-grid">
+    ${items.map(i => `
+      <div class="spec-item${i.full ? " full" : ""}">
+        <div class="spec-label">${i.label}</div>
+        <div class="spec-val${i.mono ? " mono" : ""}">${i.val}</div>
+      </div>`).join("")}
+  </div>`;
+}
+
+function renderBandTable(bands) {
+  if (!bands.length) return "";
+
+  const getBandClass = (id) => {
+    if (!id) return "";
+    if (id.startsWith("LB")) return "band-LB";
+    if (id.startsWith("MB")) return "band-MB";
+    return "band-HB";
+  };
+
+  return `
+  <div class="band-label">頻段規格</div>
+  <div class="band-scroll">
+  <table class="band-table">
+    <thead>
+      <tr>
+        <th>Band</th>
+        <th>頻段 (MHz)</th>
+        <th>增益 (dBi)</th>
+        <th>H-BW°</th>
+        <th>V-BW°</th>
+        <th>電下傾</th>
+        <th>備注</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${bands.map(b => `
+        <tr>
+          <td><span class="band-pill ${getBandClass(b.Band_ID)}">${b.Band_ID || "—"}</span></td>
+          <td class="freq-range">${b.SubBand_Low_MHz}–${b.SubBand_High_MHz}</td>
+          <td class="gain-val">${b.Gain_dBi || "—"}</td>
+          <td class="bw-val">${b.Horizontal_BW_deg || "—"}</td>
+          <td class="bw-val">${b.Vertical_BW_deg || "—"}</td>
+          <td>${b.Electrical_Tilt_Range_deg || "—"}</td>
+          <td style="color:var(--text2);max-width:120px;white-space:normal">${b.Notes || ""}</td>
+        </tr>`).join("")}
+    </tbody>
+  </table>
+  </div>`;
+}
+
+function toggleCard(id) {
+  const card = document.getElementById(`card-${id}`);
+  const panel = document.getElementById(`panel-${id}`);
+  const isOpen = card.classList.contains("active");
+
+  // Close all
+  document.querySelectorAll(".antenna-card.active").forEach(c => {
+    c.classList.remove("active");
+    c.querySelector(".detail-panel").classList.remove("open");
+  });
+
+  if (!isOpen) {
+    card.classList.add("active");
+    panel.classList.add("open");
+    openCardId = id;
+    // Smooth scroll to card
+    setTimeout(() => card.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
+  } else {
+    openCardId = null;
+  }
+}
+
+
+// ═══════════════════════════════════════════════
+// PWA — Service Worker & Install Banner
+// ═══════════════════════════════════════════════
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => console.log('[SW] Registered:', reg.scope))
+      .catch(err => console.warn('[SW] Failed:', err));
+  });
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  showInstallBanner();
+});
+
+window.addEventListener('appinstalled', () => dismissBanner());
+
+function showInstallBanner() {
+  if (document.getElementById('pwa-banner') || sessionStorage.getItem('pwa_dismissed')) return;
+  const banner = document.createElement('div');
+  banner.id = 'pwa-banner';
+  banner.innerHTML = `
+    <div style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+      background:#1a2a38;border:1px solid #e8820a;border-radius:12px;
+      padding:12px 16px;display:flex;align-items:center;gap:12px;
+      box-shadow:0 8px 32px rgba(0,0,0,0.6);z-index:9999;
+      font-family:'Barlow',sans-serif;max-width:320px;width:90%;
+      animation:pwaSlide 0.4s cubic-bezier(0.34,1.56,0.64,1) both">
+      <span style="font-size:24px">📡</span>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:600;color:#fff">安裝 Antenna DB</div>
+        <div style="font-size:11px;color:#7a8fa0;margin-top:1px">加入主畫面，隨時快速查閱</div>
+      </div>
+      <button onclick="installPWA()" style="background:#e8820a;border:none;border-radius:7px;
+        color:#fff;font-family:'Barlow',sans-serif;font-weight:600;
+        font-size:12px;padding:7px 12px;cursor:pointer;white-space:nowrap">安裝</button>
+      <button onclick="dismissBanner()" style="background:none;border:none;color:#3a5060;cursor:pointer;font-size:20px;padding:0 2px;line-height:1">×</button>
+    </div>
+    <style>@keyframes pwaSlide{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}</style>`;
+  document.body.appendChild(banner);
+}
+
+function installPWA() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(c => { if (c.outcome==='accepted') dismissBanner(); deferredPrompt=null; });
+}
+
+function dismissBanner() {
+  const b = document.getElementById('pwa-banner');
+  if (b) b.remove();
+  sessionStorage.setItem('pwa_dismissed','1');
+}
+
+// iOS Safari hint
+(function checkIOS() {
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone = window.navigator.standalone;
+  if (!isIOS || isStandalone || sessionStorage.getItem('ios_hint')) return;
+  setTimeout(() => {
+    if (document.getElementById('pwa-banner')) return;
+    const hint = document.createElement('div');
+    hint.id = 'pwa-banner';
+    hint.innerHTML = `
+      <div style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+        background:#1a2a38;border:1px solid #3d9de8;border-radius:12px;
+        padding:12px 16px;display:flex;align-items:flex-start;gap:12px;
+        box-shadow:0 8px 32px rgba(0,0,0,0.6);z-index:9999;
+        font-family:'Barlow',sans-serif;max-width:320px;width:90%;
+        animation:pwaSlide 0.4s cubic-bezier(0.34,1.56,0.64,1) both">
+        <span style="font-size:22px;margin-top:2px">📲</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:#fff">加入主畫面</div>
+          <div style="font-size:11px;color:#7a8fa0;margin-top:3px;line-height:1.6">
+            點底部 <strong style="color:#3d9de8">分享 ⬆</strong> 按鈕<br>選「<strong style="color:#3d9de8">加入主畫面</strong>」即完成安裝
+          </div>
+        </div>
+        <button onclick="this.closest('#pwa-banner').remove();sessionStorage.setItem('ios_hint','1')"
+          style="background:none;border:none;color:#3a5060;cursor:pointer;font-size:20px;padding:0 2px;line-height:1;flex-shrink:0">×</button>
+      </div>
+      <style>@keyframes pwaSlide{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}</style>`;
+    document.body.appendChild(hint);
+  }, 3500);
+})();
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+
+if (SHEET_ID === "YOUR_GOOGLE_SHEET_ID_HERE") {
+  document.getElementById("listContainer").innerHTML = `
+    <div class="state-box">
+      <span class="icon">⚙️</span>
+      尚未設定 Google Sheet ID<br>
+      <span style="font-size:10px;color:var(--text3)">請開啟 index.html，將第 14 行的 SHEET_ID 替換為您的 Sheet ID</span>
+    </div>`;
+} else {
+  loadData();
+}
+</script>
+</body>
+</html>
