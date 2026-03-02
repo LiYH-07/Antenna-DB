@@ -1,0 +1,35 @@
+{
+  "name": "Antenna DB — 天線規格查詢",
+  "short_name": "Antenna DB",
+  "description": "天線規格查詢工具，快速查閱多頻段天線參數",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0f14",
+  "theme_color": "#0a0f14",
+  "lang": "zh-TW",
+  "categories": ["utilities", "productivity"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "搜尋天線",
+      "short_name": "搜尋",
+      "description": "快速搜尋天線規格",
+      "url": "./index.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
