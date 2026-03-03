@@ -3,7 +3,7 @@
 // ║  離線快取 + 背景更新策略                      ║
 // ╚══════════════════════════════════════════════╝
 
-const CACHE_NAME = 'antenna-db-v2';
+const CACHE_NAME = 'antenna-db-v3';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes for Google Sheets data
 
 // 靜態資源（永久快取，版本更新時自動替換）
