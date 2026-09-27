@@ -5,8 +5,8 @@
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0a0f14",
-  "theme_color": "#0a0f14",
+  "background_color": "#EAE5DF",
+  "theme_color": "#EAE5DF",
   "lang": "zh-TW",
   "categories": ["utilities", "productivity"],
   "icons": [
