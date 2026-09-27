@@ -376,6 +376,15 @@
   .calc-inner[data-mode="ground"] .only-high { display: none; }
   .hr-up { color: var(--blue); font-weight: 600; }
   .hr-sub { color: var(--text3); font-size: 9.5px; }
+  .hr-types { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .hr-type-chip {
+    padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer;
+    border: 1px solid var(--border2); background: var(--bg3); color: var(--text2); transition: all 0.15s;
+  }
+  .hr-type-chip.active { background: var(--blue); border-color: var(--blue); color: #fff; font-weight: 600; }
+  .att-ok { color: var(--green); }
+  .att-mid { color: var(--accent2); }
+  .att-bad { color: var(--red); }
 
   /* ── COVERAGE SIMULATION ── */
   .sim-wrap { margin-bottom: 14px; }
@@ -536,7 +545,7 @@
       <div class="calc-inner" id="calcInner" data-mode="ground">
         <div class="filter-group-tabs calc-mode-tabs">
           <div class="filter-group-tab active" onclick="setCalcMode('ground', this)">地面涵蓋</div>
-          <div class="filter-group-tab" onclick="setCalcMode('high', this)">高樓涵蓋</div>
+          <div class="filter-group-tab" onclick="setCalcMode('high', this)">高處涵蓋</div>
         </div>
         <div class="calc-row full">
           <div class="calc-field">
@@ -568,25 +577,78 @@
             <input class="calc-input" type="number" id="calcTarget" placeholder="例如 800" min="1" step="10" oninput="calcCoverage()">
           </div>
         </div>
-        <div class="calc-row only-high">
+        <div class="only-high">
+        <div class="hr-types">
+          <div class="hr-type-chip active" onclick="setHrType('bld', this)">🏢 大樓</div>
+          <div class="hr-type-chip" onclick="setHrType('bridge', this)">🌉 高架橋</div>
+          <div class="hr-type-chip" onclick="setHrType('hill', this)">⛰️ 山坡</div>
+        </div>
+        <div class="calc-row" data-hr="bld">
           <div class="calc-field">
             <div class="calc-label">大樓距離 (m)</div>
             <input class="calc-input" type="number" id="calcBldDist" value="150" min="1" step="10" oninput="calcCoverage()">
           </div>
           <div class="calc-field">
-            <div class="calc-label">大樓高度 (m)（選填）</div>
-            <input class="calc-input" type="number" id="calcBldHeight" placeholder="例如 90" min="1" step="1" oninput="calcCoverage()">
+            <div class="calc-label">大樓高度 (m)</div>
+            <input class="calc-input" type="number" id="calcBldHeight" value="60" min="1" step="1" oninput="calcCoverage()">
           </div>
         </div>
-        <div class="calc-row only-high">
+        <div class="calc-row" data-hr="bld">
           <div class="calc-field">
             <div class="calc-label">每層樓高 (m)</div>
             <input class="calc-input" type="number" id="calcFloorH" value="3.2" min="2" step="0.1" oninput="calcCoverage()">
           </div>
+        </div>
+        <div class="calc-row" data-hr="bridge" style="display:none">
           <div class="calc-field">
-            <div class="calc-label">目標高度 (m) — 反推（選填）</div>
-            <input class="calc-input" type="number" id="calcTargetH" placeholder="例如 60" min="0" step="1" oninput="calcCoverage()">
+            <div class="calc-label">橋段起點距離 (m)</div>
+            <input class="calc-input" type="number" id="calcBrD0" value="200" min="1" step="10" oninput="calcCoverage()">
           </div>
+          <div class="calc-field">
+            <div class="calc-label">橋段終點距離 (m)</div>
+            <input class="calc-input" type="number" id="calcBrD1" value="800" min="1" step="10" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row" data-hr="bridge" style="display:none">
+          <div class="calc-field">
+            <div class="calc-label">橋面高度 (m) — 相對天線地面</div>
+            <input class="calc-input" type="number" id="calcBrH" value="25" step="1" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">用戶高度 (m) — 橋面以上</div>
+            <input class="calc-input" type="number" id="calcBrUser" value="1.5" min="0" step="0.5" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row" data-hr="hill" style="display:none">
+          <div class="calc-field">
+            <div class="calc-label">天線基地海拔 (m)</div>
+            <input class="calc-input" type="number" id="calcHillSite" value="100" step="10" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">用戶高度 (m) — 地面以上</div>
+            <input class="calc-input" type="number" id="calcHillUser" value="1.5" min="0" step="0.5" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row" data-hr="hill" style="display:none">
+          <div class="calc-field">
+            <div class="calc-label">山腳距離 (m)</div>
+            <input class="calc-input" type="number" id="calcHillD0" value="500" min="0" step="10" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">山腳海拔 (m)</div>
+            <input class="calc-input" type="number" id="calcHillE0" value="120" step="10" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row" data-hr="hill" style="display:none">
+          <div class="calc-field">
+            <div class="calc-label">目標距離 (m)</div>
+            <input class="calc-input" type="number" id="calcHillD1" value="1500" min="1" step="10" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">目標海拔 (m)</div>
+            <input class="calc-input" type="number" id="calcHillE1" value="350" step="10" oninput="calcCoverage()">
+          </div>
+        </div>
         </div>
         <div class="calc-result" id="calcResult"></div>
       </div>
@@ -1090,7 +1152,7 @@ function calcCoverage() {
   if (isNaN(userH)) { resultEl.innerHTML = ""; return; }
   const heightDiff = antH - userH;
   if (heightDiff <= 0) {
-    resultEl.innerHTML = `<div class="calc-warn">⚠ 天線高度必須大於用戶高度；用戶在天線以上請改用「高樓涵蓋」</div>`;
+    resultEl.innerHTML = `<div class="calc-warn">⚠ 天線高度必須大於用戶高度；用戶在天線以上請改用「高處涵蓋」</div>`;
     return;
   }
 
@@ -1211,192 +1273,270 @@ function renderReverseTilt(data, heightDiff) {
 }
 
 // ═══════════════════════════════════════════════
-// 高樓涵蓋：波束打在距離 D 的大樓立面上，涵蓋哪些高度／樓層
-// 高度 h = H_ant − D·tan(角度)，角度以水平往下為正（負值 = 上仰）
+// 高處涵蓋：目標是一段「距離與高度都可能不同」的線 p0 → p1
+//   大樓 = 垂直立面、高架橋 = 水平橋面、山坡 = 斜坡
+// 高度以天線基地地面為 0（已含用戶高度）；角度以水平往下為正，負值 = 上仰
 // ═══════════════════════════════════════════════
+
+let hrType = "bld"; // "bld" | "bridge" | "hill"
+const HR_LABELS = {
+  bld:    { name: "大樓",   p0: "樓底", p1: "樓頂" },
+  bridge: { name: "高架橋", p0: "起點", p1: "終點" },
+  hill:   { name: "山坡",   p0: "山腳", p1: "目標" },
+};
+
+function setHrType(type, el) {
+  hrType = type;
+  document.querySelectorAll(".hr-type-chip").forEach(c => c.classList.toggle("active", c === el));
+  document.querySelectorAll("[data-hr]").forEach(r => { r.style.display = r.dataset.hr === type ? "" : "none"; });
+  calcCoverage();
+}
 
 function fmtTilt(t) {
   return t >= 0 ? `下傾 ${t.toFixed(1)}°` : `<span class="hr-up">上仰 ${(-t).toFixed(1)}°</span>`;
 }
 
+const numVal = id => parseFloat(document.getElementById(id).value);
+
+// 讀取目標：p0 / p1 為 {x 水平距離, z 高度}；ground 為繪圖用地形折線
+function hrTarget() {
+  if (hrType === "bld") {
+    const D = numVal("calcBldDist"), Hb = numVal("calcBldHeight"), fh = numVal("calcFloorH");
+    if (!(D > 0) || !(Hb > 0)) return { err: "請輸入大樓距離與大樓高度" };
+    return { p0: { x: D, z: 0 }, p1: { x: D, z: Hb }, fh: fh > 0 ? fh : NaN, ground: [[0, 0]] };
+  }
+  if (hrType === "bridge") {
+    const d0 = numVal("calcBrD0"), d1 = numVal("calcBrD1"), h = numVal("calcBrH");
+    const hu = numVal("calcBrUser") || 0;
+    if (!(d0 > 0) || !(d1 > d0) || isNaN(h)) return { err: "請輸入橋段起點、終點距離（終點需大於起點）與橋面高度" };
+    return { p0: { x: d0, z: h + hu }, p1: { x: d1, z: h + hu }, deck: h, ground: [[0, 0]] };
+  }
+  const es = numVal("calcHillSite"), d0 = numVal("calcHillD0"), e0 = numVal("calcHillE0");
+  const d1 = numVal("calcHillD1"), e1 = numVal("calcHillE1"), hu = numVal("calcHillUser") || 0;
+  if ([es, e0, e1].some(isNaN) || !(d0 >= 0) || !(d1 > d0)) return { err: "請輸入各點海拔與距離（目標距離需大於山腳距離）" };
+  return { p0: { x: d0, z: e0 - es + hu }, p1: { x: d1, z: e1 - es + hu }, site: es, hu,
+    ground: [[0, 0], [d0, e0 - es], [d1, e1 - es]] };
+}
+
+// 3GPP TR 36.814 垂直場型近似：偏離主瓣 Δθ 的衰減 (dB)
+function vAtt(off, vbw) {
+  return Math.min(12 * (off / vbw) ** 2, 20);
+}
+
+function fmtAtt(off, att) {
+  const cls = att <= 3 ? "att-ok" : att <= 10 ? "att-mid" : "att-bad";
+  const dir = Math.abs(off) < 0.05 ? "" : off > 0 ? "下" : "上";
+  return `<span class="${cls}">−${att.toFixed(1)} dB</span><br><span class="hr-sub">偏${dir} ${Math.abs(off).toFixed(1)}°</span>`;
+}
+
 function renderHighRise(base, chips, antH, tilt) {
-  const D  = parseFloat(document.getElementById("calcBldDist").value);
-  const Hb = parseFloat(document.getElementById("calcBldHeight").value);
-  const fh = parseFloat(document.getElementById("calcFloorH").value);
-  const Ht = parseFloat(document.getElementById("calcTargetH").value);
-  if (isNaN(D) || D <= 0) return `<div class="calc-warn">請輸入大樓距離</div>`;
+  const T = hrTarget();
+  if (T.err) return `<div class="calc-warn">${T.err}</div>`;
+  const L = HR_LABELS[hrType];
+  const { p0, p1 } = T;
+  const deg = r => r * 180 / Math.PI;
+  const elev = p => deg(Math.atan2(antH - p.z, p.x));        // 天線看該點的俯角
+  const pt = s => ({ x: p0.x + s * (p1.x - p0.x), z: p0.z + s * (p1.z - p0.z) });
+  const a0 = elev(p0), a1 = elev(p1);
+  const span = Math.abs(a0 - a1), center = (a0 + a1) / 2;
 
-  const hasB = !isNaN(Hb) && Hb > 0, hasF = !isNaN(fh) && fh > 0, hasT = !isNaN(Ht) && Ht >= 0;
-  const rad = x => x * Math.PI / 180, deg = r => r * 180 / Math.PI;
-  const hAt = a => a >= 90 ? -Infinity : a <= -90 ? Infinity : antH - D * Math.tan(rad(a));
-  const nFloors = hasB && hasF ? Math.max(1, Math.round(Hb / fh)) : Infinity;
-  const floorRange = (lo, hi) => {
-    if (!hasF) return "";
-    const f1 = Math.min(Math.floor(lo / fh) + 1, nFloors);
-    const f2 = Math.min(Math.max(Math.ceil(hi / fh), f1), nFloors);
-    return f1 === f2 ? `${f1}F` : `${f1}–${f2}F`;
-  };
-
-  // 整棟（0 ~ Hb）對天線的張角與置中下傾
-  const aBase = deg(Math.atan(antH / D));
-  const aRoof = hasB ? deg(Math.atan((antH - Hb) / D)) : NaN;
-  const span = aBase - aRoof, center = (aBase + aRoof) / 2;
-
+  // 目標線上被波束 (上緣 aFar ~ 下緣 aNear) 涵蓋的區段；俯角沿直線單調，取樣即可
+  const N = 400;
   const data = base.map(d => {
-    const top = hAt(d.aFar), bot = hAt(d.aNear), main = hAt(tilt);
-    const lo = Math.max(bot, 0), hi = hasB ? Math.min(top, Hb) : top;
-    const hit = hi > lo;
-    let state;
-    if (hit) state = `${lo.toFixed(1)}–${hi.toFixed(1)} m${hasB && top > Hb ? ' <span class="hr-sub">至樓頂</span>' : ""}`;
-    else if (top <= 0) state = `<span class="calc-inf">到達大樓前已落地</span>`;
-    else state = `<span class="calc-inf">從樓頂上方通過</span>`;
-    return { ...d, top, bot, main, lo, hi, hit, state, floors: hit ? floorRange(lo, hi) : "—" };
+    let s0 = -1, s1 = -1;
+    for (let i = 0; i <= N; i++) {
+      const a = elev(pt(i / N));
+      if (a >= d.aFar && a <= d.aNear) { if (s0 < 0) s0 = i / N; s1 = i / N; }
+    }
+    const off0 = a0 - tilt, off1 = a1 - tilt;
+    return { ...d, hit: s1 > s0, s0, s1, off0, off1, att0: vAtt(off0, d.vbw), att1: vAtt(off1, d.vbw) };
   });
   const sel = data[calcSelIdx];
 
-  const caption = [
-    ["大樓距離", fmtM(D)],
-    ["V-BW", `${sel.vbw}°`],
-    ["上緣", isFinite(sel.top) ? `${sel.top.toFixed(1)} m` : "∞"],
-    ["下緣", sel.bot > 0 ? `${sel.bot.toFixed(1)} m` : "地面"],
-    ["主瓣", sel.main > 0 ? `${sel.main.toFixed(1)} m` : "未達大樓"],
-  ].map(([k, v]) => `<span>${k} <b>${esc(v)}</b></span>`).join("");
+  const floorOf = h => Math.floor(h / T.fh) + 1;
+  const nFloors = hrType === "bld" && T.fh ? Math.max(1, Math.round(p1.z / T.fh)) : Infinity;
+  const coverText = d => {
+    if (!d.hit) {
+      return Math.min(a0, a1) > d.aNear
+        ? `<span class="rev-warn">目標在波束下方</span><br><span class="hr-sub">需加大下傾</span>`
+        : `<span class="rev-warn">目標在波束上方</span><br><span class="hr-sub">需減少下傾／上仰</span>`;
+    }
+    const q0 = pt(d.s0), q1 = pt(d.s1);
+    if (hrType === "bld") {
+      let f = "";
+      if (T.fh) {
+        const f1 = Math.min(floorOf(q0.z), nFloors), f2 = Math.min(Math.max(Math.ceil(q1.z / T.fh), f1), nFloors);
+        f = `<br><span class="calc-near">${f1 === f2 ? `${f1}F` : `${f1}–${f2}F`}</span>`;
+      }
+      return `${q0.z.toFixed(1)}–${q1.z.toFixed(1)} m${f}`;
+    }
+    const dist = `${fmtM(q0.x)}–${fmtM(q1.x)}`;
+    if (hrType === "hill") {
+      const e = q => Math.round(q.z - T.hu + T.site);
+      return `${dist}<br><span class="hr-sub">海拔 ${e(q0)}–${e(q1)} m</span>`;
+    }
+    return dist;
+  };
+  const pct = d => d.hit ? `${Math.round((d.s1 - d.s0) * 100)}%` : "0%";
 
   const rows = data.map((d, i) => `<tr class="${i === calcSelIdx ? "sel" : ""}" onclick="selectCalcBand(${i})">
       <td><span class="band-pill band-${d.grp}">${esc(d.b.Band_ID || "—")}</span></td>
       <td style="color:var(--blue)">${d.vbw}°</td>
-      <td>${d.state}</td>
-      <td>${d.hit && hasF ? `<span class="calc-near">${d.floors}</span>` : '<span class="calc-inf">—</span>'}</td>
-      ${hasB ? `<td>${d.vbw >= span ? '<span class="calc-near">VBW 足夠</span>'
-        : `<span class="rev-warn">差 ${(span - d.vbw).toFixed(1)}°</span>`}</td>` : ""}
+      <td>${coverText(d)}</td>
+      <td>${pct(d)}</td>
+      <td>${fmtAtt(d.off0, d.att0)}</td>
+      <td>${fmtAtt(d.off1, d.att1)}</td>
+      <td>${d.vbw >= span ? '<span class="calc-near">VBW 足夠</span>'
+        : `<span class="rev-warn">差 ${(span - d.vbw).toFixed(1)}°</span>`}</td>
     </tr>`).join("");
 
-  let rev = "";
-  if (hasT || hasB) {
-    rev += `<div class="calc-result-label" style="margin-top:16px">反推下傾角 · 大樓距離 ${fmtM(D)}</div>`;
-    if (hasT) {
-      const t = deg(Math.atan((antH - Ht) / D));
-      rev += `<div class="rev-main">
-        <span>主瓣對準 ${Ht} m${hasF ? `（${floorRange(Ht, Ht)}）` : ""}：<b class="rev-tilt">${fmtTilt(t)}</b></span>
-        <button class="rev-apply" onclick="applyTilt(${t})">套用</button></div>`;
-    }
-    if (hasB) {
-      rev += `<div class="rev-main">
-        <span>整棟 0–${Hb} m 置中：<b class="rev-tilt">${fmtTilt(center)}</b>，需 VBW ≥ ${span.toFixed(1)}°</span>
-        <button class="rev-apply" onclick="applyTilt(${center})">套用</button></div>`;
-    }
-    rev += `<div style="font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
-      θ = atan((H<sub>ant</sub> − 目標高度) / D)；上仰（負值）通常需機械／支架調整，多數天線電下傾不支援負角度
-    </div>`;
-  }
+  const caption = [
+    ["目標", L.name],
+    ["V-BW", `${sel.vbw}°`],
+    ["涵蓋", pct(sel)],
+    [L.p0, `−${sel.att0.toFixed(1)} dB`],
+    [L.p1, `−${sel.att1.toFixed(1)} dB`],
+  ].map(([k, v]) => `<span>${k} <b>${esc(v)}</b></span>`).join("");
+
+  const revRow = (label, t) => `<div class="rev-main">
+      <span>${label}：<b class="rev-tilt">${fmtTilt(t)}</b></span>
+      <button class="rev-apply" onclick="applyTilt(${t})">套用</button></div>`;
 
   return `
-    <div class="calc-result-label">高樓涵蓋模擬圖</div>
+    <div class="calc-result-label">${L.name}涵蓋模擬圖</div>
     <div class="sim-wrap">
       <div class="sim-bands">${chips}</div>
-      <div class="sim-svg-box">${renderHighRiseSim(sel, antH, tilt, D, hasB ? Hb : NaN, hasF ? fh : NaN, hasT ? Ht : NaN)}</div>
+      <div class="sim-svg-box">${renderHighRiseSim(sel, antH, tilt, T, pt)}</div>
       <div class="sim-caption">${caption}</div>
-      <div class="sim-note">示意圖：水平距離未依比例；高度標示為實際計算值。</div>
+      <div class="sim-note">示意圖：水平與垂直比例不同，數值為實際計算值；未考慮中間地形或建物遮蔽。</div>
     </div>
-    <div class="calc-result-label">各頻段大樓涵蓋</div>
+    <div class="calc-result-label">各頻段涵蓋</div>
     <div style="overflow-x:auto;margin:0 -14px;padding:0 14px 4px">
-    <table class="calc-table" style="min-width:${hasB ? 400 : 330}px">
+    <table class="calc-table" style="min-width:540px">
       <thead><tr>
-        <th>Band</th><th>V-BW</th><th>涵蓋高度</th><th style="color:var(--green)">樓層</th>
-        ${hasB ? `<th>置中涵蓋整棟（需 ${span.toFixed(1)}°）</th>` : ""}
+        <th>Band</th><th>V-BW</th><th>涵蓋區段</th><th>比例</th>
+        <th>${L.p0}衰減</th><th>${L.p1}衰減</th><th>整段（需 ${span.toFixed(1)}°）</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
     <div style="margin-top:8px;font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
-      高度 = H<sub>ant</sub> − D·tan(角度) &nbsp;｜&nbsp; 上緣角 = θ − VBW/2，下緣角 = θ + VBW/2<br>
-      H<sub>ant</sub>=${antH}m &nbsp; D=${D}m &nbsp; θ=${tilt}°${hasF ? ` &nbsp; 樓高=${fh}m` : ""}
+      俯角 = atan((H<sub>ant</sub> − 目標高度) / 距離)；波束涵蓋俯角 θ−VBW/2 ~ θ+VBW/2<br>
+      衰減 ≈ 12·(偏離主瓣角 / VBW)²，上限 20 dB（3GPP 垂直場型近似）
     </div>
-    ${rev}`;
+    <div class="calc-result-label" style="margin-top:16px">反推下傾角</div>
+    ${revRow(`主瓣對準${L.p0}`, a0)}
+    ${revRow(`主瓣對準${L.p1}`, a1)}
+    ${revRow(`置中涵蓋整段（需 VBW ≥ ${span.toFixed(1)}°）`, center)}
+    <div style="font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
+      上仰（負值）通常需機械／支架調整，多數天線電下傾不支援負角度
+    </div>`;
 }
 
-function renderHighRiseSim(d, antH, tilt, D, Hb, fh, Ht) {
-  const W = 360, H = 250, yG = 214, yPad = 24;
-  const x0 = 60, ax = x0 + 3, xb = 276, bw = 48;
-  const hasB = !isNaN(Hb);
-  const col = SIM_C[d.grp];
-  const t = simText, line = simLine;
+function renderHighRiseSim(d, antH, tilt, T, pt) {
+  const W = 360, H = 250, yPad = 26, yBot = 212;
+  const x0 = 60, ax = x0 + 3, xR = 344;
+  const col = SIM_C[d.grp], t = simText, line = simLine;
+  const { p0, p1 } = T;
+  const rad = a => a * Math.PI / 180;
 
-  const hMax = Math.max(antH, hasB ? Hb : Math.min(Math.max(d.top, 0), antH * 2.5),
-    isNaN(Ht) ? 0 : Ht, 1) * 1.15;
-  const ys = (yG - yPad) / hMax;
-  const Y = h => yG - h * ys;
-  const yA = Y(antH);
-  const clampY = y => Math.max(10, Math.min(yG - 4, y));
+  const bldW = hrType === "bld" ? p0.x * 0.14 : 0;          // 大樓寬度（示意）
+  const xMax = Math.max(p0.x, p1.x) * 1.08 + bldW;
+  const zs = [0, antH, p0.z, p1.z, ...T.ground.map(g => g[1])];
+  const zMin = Math.min(...zs), zMax = Math.max(...zs);
+  const zTop = zMax + (zMax - zMin) * 0.15 + 1;
+  const X = x => ax + x * (xR - ax) / xMax;
+  const Z = z => yBot - (z - zMin) * (yBot - yPad) / (zTop - zMin);
+  const yG = Z(0);
+  const yA = Math.min(Z(antH), yG - 24);                    // 天線太矮時，圖上至少保留鐵塔高度
 
-  // 射線終點：打到大樓立面，或在到達前落地
-  const end = h => {
-    if (h >= 0) return { x: xb, y: Y(Math.min(h, hMax * 3)) };
-    const f = antH / (antH - h);
-    return { x: ax + f * (xb - ax), y: yG };
+  // 射線與線段 P→Q 的交點水平距離（射線：z = antH − tan(a)·x）
+  const hitSeg = (a, P, Q) => {
+    const k = Math.tan(rad(a)), dx = Q[0] - P[0], dz = Q[1] - P[1];
+    const den = dz + k * dx;
+    if (Math.abs(den) < 1e-12) return Infinity;
+    const u = (antH - P[1] - k * P[0]) / den;
+    if (u < 0 || u > 1) return Infinity;
+    const x = P[0] + u * dx;
+    return x > 1e-6 ? x : Infinity;
   };
-  const pTop = end(d.top), pBot = end(d.bot), pMain = end(d.main);
+  const surf = [[[p0.x, p0.z], [p1.x, p1.z]]];
+  if (hrType === "bld") surf.push([[p0.x, p1.z], [p0.x + bldW, p1.z]]);
+  const gp = [...T.ground, [xMax * 3, T.ground[T.ground.length - 1][1]]];
+  for (let i = 0; i < gp.length - 1; i++) surf.push([gp[i], gp[i + 1]]);
+  const rayEnd = a => {
+    const x = Math.min(xMax, ...surf.map(([P, Q]) => hitSeg(a, P, Q)));
+    return { x: X(x), y: Z(antH - Math.tan(rad(a)) * x) };
+  };
+  const eTop = rayEnd(d.aFar), eBot = rayEnd(d.aNear), eMain = rayEnd(tilt);
 
-  let s = simFrame(W, H, yG, `高樓涵蓋模擬圖：${d.b.Band_ID || ""} 涵蓋 ${d.hit ? `${d.lo.toFixed(1)}–${d.hi.toFixed(1)} m` : "無"}`);
+  let s = simFrame(W, H, yG, `${HR_LABELS[hrType].name}涵蓋模擬圖：${d.b.Band_ID || ""}`);
 
-  // 大樓與樓層線
-  const yRoof = hasB ? Y(Hb) : yPad - 10;
-  s += `<rect x="${xb}" y="${yRoof.toFixed(1)}" width="${bw}" height="${(yG - yRoof).toFixed(1)}"
-    fill="${SIM_C.halo}" stroke="${SIM_C.tower}" stroke-width="1.2"${hasB ? "" : ' stroke-dasharray="4 3"'}/>`;
-  if (!isNaN(fh)) {
-    const step = Math.max(1, Math.ceil(4 / (fh * ys)));   // 樓層線至少間隔 4px
-    for (let h = fh * step; h < (hasB ? Hb : hMax * 1.2); h += fh * step) {
-      s += line(xb, Y(h), xb + bw, Y(h), SIM_C.tower, 0.4);
+  // 波束（先畫，地形與建物蓋在上面）
+  s += `<polygon points="${ax},${yA.toFixed(1)} ${eTop.x.toFixed(1)},${eTop.y.toFixed(1)} ${eBot.x.toFixed(1)},${eBot.y.toFixed(1)}"
+    fill="${col}" fill-opacity="0.2"/>`;
+  s += line(ax, yA, eTop.x, eTop.y, col, 1.4);
+  s += line(ax, yA, eBot.x, eBot.y, col, 1.4);
+  s += line(ax, yA, eMain.x, eMain.y, SIM_C.heading, 1.5, "5 3");
+  s += line(ax, yA, xR, yA, SIM_C.text3, 1, "4 3");
+  s += t(xR - 2, yA - 4, "0°", { anchor: "end", fill: SIM_C.text3 });
+
+  const q0 = d.hit ? pt(d.s0) : null, q1 = d.hit ? pt(d.s1) : null;
+
+  if (hrType === "bld") {
+    const xb = X(p0.x), wb = X(p0.x + bldW) - xb, yRoof = Z(p1.z);
+    s += `<rect x="${xb.toFixed(1)}" y="${yRoof.toFixed(1)}" width="${wb.toFixed(1)}" height="${(yG - yRoof).toFixed(1)}"
+      fill="${SIM_C.halo}" stroke="${SIM_C.tower}" stroke-width="1.2"/>`;
+    if (T.fh) {
+      const pxF = (yG - yRoof) / (p1.z / T.fh), step = Math.max(1, Math.ceil(4 / pxF));
+      for (let h = T.fh * step; h < p1.z; h += T.fh * step) s += line(xb, Z(h), xb + wb, Z(h), SIM_C.tower, 0.4);
     }
-  }
-
-  // 0° 水平線
-  s += line(ax, yA, xb, yA, SIM_C.text3, 1, "4 3");
-  s += t(xb - 4, yA - 4, "0°", { anchor: "end", fill: SIM_C.text3 });
-
-  // 波束
-  const pts = [[ax, yA], [pTop.x, pTop.y]];
-  if (pTop.x === xb && pBot.x < xb) pts.push([xb, yG]);
-  pts.push([pBot.x, pBot.y]);
-  s += `<polygon points="${pts.map(p => p.map(v => v.toFixed(1)).join(",")).join(" ")}" fill="${col}" fill-opacity="0.2"/>`;
-  s += line(ax, yA, pTop.x, pTop.y, col, 1.4);
-  s += line(ax, yA, pBot.x, pBot.y, col, 1.4);
-  s += line(ax, yA, pMain.x, pMain.y, SIM_C.heading, 1.5, "5 3");
-
-  // 大樓上被照到的區段
-  if (d.hit) {
-    s += `<rect x="${xb}" y="${Y(d.hi).toFixed(1)}" width="${bw}" height="${(Y(d.lo) - Y(d.hi)).toFixed(1)}"
-      fill="${col}" fill-opacity="0.55"/>`;
-    let yHi = clampY(Y(d.hi) + 3), yLo = clampY(Y(d.lo) + 3);
-    if (yLo - yHi < 12) yLo = Math.min(yG - 4, yHi + 12);
-    s += t(xb - 4, yHi, `${d.hi.toFixed(1)}m`, { anchor: "end", fill: col, weight: 600 });
-    s += t(xb - 4, yLo, `${d.lo.toFixed(1)}m`, { anchor: "end", fill: col, weight: 600 });
-    if (d.floors !== "—" && !isNaN(fh)) {
-      s += t(xb + bw / 2, clampY((Y(d.hi) + Y(d.lo)) / 2 + 3), d.floors, { anchor: "middle", fill: SIM_C.heading, weight: 600 });
+    if (d.hit) {
+      s += `<rect x="${xb.toFixed(1)}" y="${Z(q1.z).toFixed(1)}" width="${wb.toFixed(1)}" height="${(Z(q0.z) - Z(q1.z)).toFixed(1)}"
+        fill="${col}" fill-opacity="0.55"/>`;
+      let yH = Z(q1.z) + 3, yL = Z(q0.z) + 3;
+      if (yL - yH < 12) yL = yH + 12;
+      s += t(xb - 4, Math.max(10, yH), `${q1.z.toFixed(1)}m`, { anchor: "end", fill: col, weight: 600 });
+      s += t(xb - 4, Math.min(yG - 3, yL), `${q0.z.toFixed(1)}m`, { anchor: "end", fill: col, weight: 600 });
     }
+    s += t(xb + wb / 2, Math.max(10, yRoof - 4), `${p1.z}m`, { anchor: "middle", fill: SIM_C.heading, size: 9 });
+    s += `<line x1="${ax}" y1="${yG + 17}" x2="${xb.toFixed(1)}" y2="${yG + 17}" stroke="${SIM_C.text2}" stroke-width="1"
+      marker-start="url(#simArrow)" marker-end="url(#simArrow)"/>`;
+    s += t((ax + xb) / 2, yG + 21, `D = ${fmtM(p0.x)}`, { anchor: "middle", fill: SIM_C.heading, weight: 600 });
+  } else {
+    if (hrType === "hill") {
+      const g = [...T.ground, [xMax, T.ground[T.ground.length - 1][1]]];
+      s += `<polygon points="${g.map(([x, z]) => `${X(x).toFixed(1)},${Z(z).toFixed(1)}`).join(" ")} ${X(xMax).toFixed(1)},${H} ${ax},${H}"
+        fill="${SIM_C.soil2}" stroke="${SIM_C.grass}" stroke-width="2"/>`;
+    } else {
+      const yD = Z(T.deck), xa = X(p0.x), xz = X(p1.x);
+      const piers = Math.max(2, Math.round((xz - xa) / 36));
+      for (let i = 0; i <= piers; i++) {
+        const xp = xa + (xz - xa) * i / piers;
+        s += line(xp, yD + 3, xp, yG, SIM_C.tower, 2);
+      }
+      s += `<rect x="${xa.toFixed(1)}" y="${(yD - 1).toFixed(1)}" width="${(xz - xa).toFixed(1)}" height="4" fill="${SIM_C.tower}"/>`;
+    }
+    // 目標線（用戶高度）與涵蓋段
+    s += line(X(p0.x), Z(p0.z), X(p1.x), Z(p1.z), SIM_C.text2, 0.9, "2 2");
+    if (d.hit) {
+      s += line(X(q0.x), Z(q0.z), X(q1.x), Z(q1.z), col, 4);
+      const xm = (X(q0.x) + X(q1.x)) / 2, ym = (Z(q0.z) + Z(q1.z)) / 2;
+      s += t(xm, Math.max(10, ym - 8), `${fmtM(q0.x)}–${fmtM(q1.x)}`, { anchor: "middle", fill: col, weight: 600 });
+    }
+    // 起點／終點標示
+    [[p0, HR_LABELS[hrType].p0], [p1, HR_LABELS[hrType].p1]].forEach(([p, lab]) => {
+      s += `<circle cx="${X(p.x).toFixed(1)}" cy="${Z(p.z).toFixed(1)}" r="2.5" fill="${SIM_C.heading}"/>`;
+      s += line(X(p.x), yBot + 4, X(p.x), yBot + 9, SIM_C.text2, 1);
+      s += t(X(p.x), yBot + 20, `${lab} ${fmtM(p.x)}`, { anchor: "middle", fill: SIM_C.heading, size: 8.5, weight: 600 });
+    });
   }
-
-  // 目標高度
-  if (!isNaN(Ht)) {
-    s += line(xb - 2, Y(Ht), xb + bw + 2, Y(Ht), SIM_C.far, 1.4, "3 2");
-    s += t(W - 2, clampY(Y(Ht) - 3), "目標", { anchor: "end", fill: SIM_C.far, size: 8.5, weight: 600 });
-  }
-
-  // 大樓高度
-  s += t(xb + bw / 2, Math.max(10, yRoof - 4), hasB ? `${Hb}m` : "大樓", { anchor: "middle", fill: SIM_C.heading, size: 9 });
 
   // 傾角標示
-  const lx = ax + 46;
-  const ly = yA + (pMain.y - yA) * (46 / Math.max(1, pMain.x - ax));
+  const lx = ax + 46, ly = yA + (eMain.y - yA) * (46 / Math.max(1, eMain.x - ax));
   s += t(lx, ly + (tilt >= 0 ? 12 : -5), tilt >= 0 ? `下傾 ${tilt}°` : `上仰 ${-tilt}°`,
     { fill: tilt >= 0 ? SIM_C.heading : SIM_C.LB, weight: 600 });
 
   s += simTower(x0, ax, yA, yG, tilt, antH);
-
-  // 距離 D
-  s += `<line x1="${ax}" y1="${yG + 17}" x2="${xb}" y2="${yG + 17}" stroke="${SIM_C.text2}" stroke-width="1"
-    marker-start="url(#simArrow)" marker-end="url(#simArrow)"/>`;
-  s += t((ax + xb) / 2, yG + 21, `D = ${fmtM(D)}`, { anchor: "middle", fill: SIM_C.heading, weight: 600 });
-
   return s + `</svg>`;
 }
 
