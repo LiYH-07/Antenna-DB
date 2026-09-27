@@ -371,6 +371,12 @@
   .calc-table tbody tr.sel td { background: var(--accent-tint) !important; }
   .calc-table tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
+  .calc-mode-tabs { margin-bottom: 12px; }
+  .calc-inner[data-mode="high"] .only-ground,
+  .calc-inner[data-mode="ground"] .only-high { display: none; }
+  .hr-up { color: var(--blue); font-weight: 600; }
+  .hr-sub { color: var(--text3); font-size: 9.5px; }
+
   /* ── COVERAGE SIMULATION ── */
   .sim-wrap { margin-bottom: 14px; }
   .sim-bands { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 8px; }
@@ -527,7 +533,11 @@
       <span class="calc-toggle-icon">▾</span>
     </div>
     <div class="calc-panel" id="calcPanel">
-      <div class="calc-inner">
+      <div class="calc-inner" id="calcInner" data-mode="ground">
+        <div class="filter-group-tabs calc-mode-tabs">
+          <div class="filter-group-tab active" onclick="setCalcMode('ground', this)">地面涵蓋</div>
+          <div class="filter-group-tab" onclick="setCalcMode('high', this)">高樓涵蓋</div>
+        </div>
         <div class="calc-row full">
           <div class="calc-field">
             <div class="calc-label">天線型號</div>
@@ -541,21 +551,41 @@
             <div class="calc-label">天線高度 (m)</div>
             <input class="calc-input" type="number" id="calcHeight" value="30" min="1" step="0.5" oninput="calcCoverage()">
           </div>
-          <div class="calc-field">
+          <div class="calc-field only-ground">
             <div class="calc-label">用戶高度 (m)</div>
             <input class="calc-input" type="number" id="calcUserHeight" value="1.5" min="0" step="0.5" oninput="calcCoverage()">
           </div>
         </div>
         <div class="calc-row full">
           <div class="calc-field">
-            <div class="calc-label">下傾角 (度) — 機械 + 電子</div>
-            <input class="calc-input" type="number" id="calcTilt" value="6" min="0" max="90" step="0.5" oninput="calcCoverage()">
+            <div class="calc-label">下傾角 (度) — 機械 + 電子，負值 = 上仰</div>
+            <input class="calc-input" type="number" id="calcTilt" value="6" min="-30" max="90" step="0.5" oninput="calcCoverage()">
           </div>
         </div>
-        <div class="calc-row full">
+        <div class="calc-row full only-ground">
           <div class="calc-field">
             <div class="calc-label">目標涵蓋距離 (m) — 反推下傾角（選填）</div>
             <input class="calc-input" type="number" id="calcTarget" placeholder="例如 800" min="1" step="10" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row only-high">
+          <div class="calc-field">
+            <div class="calc-label">大樓距離 (m)</div>
+            <input class="calc-input" type="number" id="calcBldDist" value="150" min="1" step="10" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">大樓高度 (m)（選填）</div>
+            <input class="calc-input" type="number" id="calcBldHeight" placeholder="例如 90" min="1" step="1" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row only-high">
+          <div class="calc-field">
+            <div class="calc-label">每層樓高 (m)</div>
+            <input class="calc-input" type="number" id="calcFloorH" value="3.2" min="2" step="0.1" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">目標高度 (m) — 反推（選填）</div>
+            <input class="calc-input" type="number" id="calcTargetH" placeholder="例如 60" min="0" step="1" oninput="calcCoverage()">
           </div>
         </div>
         <div class="calc-result" id="calcResult"></div>
@@ -999,6 +1029,16 @@ function fmtM(m) {
   return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`;
 }
 
+let calcMode = "ground"; // "ground" | "high"
+
+function setCalcMode(mode, el) {
+  calcMode = mode;
+  document.getElementById("calcInner").dataset.mode = mode;
+  document.querySelectorAll(".calc-mode-tabs .filter-group-tab").forEach(t => t.classList.remove("active"));
+  el.classList.add("active");
+  calcCoverage();
+}
+
 function selectCalcBand(i) {
   calcSelIdx = i;
   calcCoverage();
@@ -1014,13 +1054,7 @@ function calcCoverage() {
   const tilt   = parseFloat(document.getElementById("calcTilt").value);
 
   if (!antennaName) { resultEl.innerHTML = ""; return; }
-  if (isNaN(antH) || isNaN(userH) || isNaN(tilt)) { resultEl.innerHTML = ""; return; }
-
-  const heightDiff = antH - userH;
-  if (heightDiff <= 0) {
-    resultEl.innerHTML = `<div class="calc-warn">⚠ 天線高度必須大於用戶高度</div>`;
-    return;
-  }
+  if (isNaN(antH) || isNaN(tilt)) { resultEl.innerHTML = ""; return; }
 
   const chtRange = getChtBandRange();
   let bands = bandData.filter(b => b.Antenna_Name === antennaName && b.Vertical_BW_deg);
@@ -1028,33 +1062,46 @@ function calcCoverage() {
     bands = bands.filter(b => bandRowMatchesCht(b, chtRange));
   }
 
-  const toRad = deg => deg * Math.PI / 180;
-  const data = bands.map(b => {
+  // aFar = 波束上緣、aNear = 波束下緣（相對水平線往下為正）
+  const base = bands.map(b => {
     const vbw = parseFloat(b.Vertical_BW_deg);
     if (isNaN(vbw)) return null;
-    const aFar = tilt - vbw / 2, aNear = tilt + vbw / 2;
-    return {
-      b, vbw, aFar, aNear,
-      near: aNear > 0 ? heightDiff / Math.tan(toRad(aNear)) : Infinity,
-      far:  aFar  > 0 ? heightDiff / Math.tan(toRad(aFar))  : Infinity,
-      main: tilt  > 0 ? heightDiff / Math.tan(toRad(tilt))  : Infinity,
-      grp: bandGroup(b.Band_ID)
-    };
+    return { b, vbw, aFar: tilt - vbw / 2, aNear: tilt + vbw / 2, grp: bandGroup(b.Band_ID) };
   }).filter(Boolean);
 
-  if (!data.length) {
+  if (!base.length) {
     resultEl.innerHTML = `<div class="calc-warn">此天線無垂直角度 (VBW) 資料</div>`;
     return;
   }
 
   if (antennaName !== calcLastAnt) { calcLastAnt = antennaName; calcSelIdx = 0; }
-  if (calcSelIdx >= data.length) calcSelIdx = 0;
-  const sel = data[calcSelIdx];
+  if (calcSelIdx >= base.length) calcSelIdx = 0;
 
-  const chips = data.map((d, i) => `
+  const chips = base.map((d, i) => `
     <div class="sim-chip c-${d.grp}${i === calcSelIdx ? " sel" : ""}" data-i="${i}" onclick="selectCalcBand(${i})">
       <b>${esc(d.b.Band_ID || "—")}</b>${esc(d.b.SubBand_Low_MHz || "?")}–${esc(d.b.SubBand_High_MHz || "?")}
     </div>`).join("");
+
+  if (calcMode === "high") {
+    resultEl.innerHTML = renderHighRise(base, chips, antH, tilt);
+    return;
+  }
+
+  if (isNaN(userH)) { resultEl.innerHTML = ""; return; }
+  const heightDiff = antH - userH;
+  if (heightDiff <= 0) {
+    resultEl.innerHTML = `<div class="calc-warn">⚠ 天線高度必須大於用戶高度；用戶在天線以上請改用「高樓涵蓋」</div>`;
+    return;
+  }
+
+  const toRad = deg => deg * Math.PI / 180;
+  const data = base.map(d => ({
+    ...d,
+    near: d.aNear > 0 ? heightDiff / Math.tan(toRad(d.aNear)) : Infinity,
+    far:  d.aFar  > 0 ? heightDiff / Math.tan(toRad(d.aFar))  : Infinity,
+    main: tilt    > 0 ? heightDiff / Math.tan(toRad(tilt))    : Infinity,
+  }));
+  const sel = data[calcSelIdx];
 
   const sb = sel.b;
   const caption = [
@@ -1163,6 +1210,265 @@ function renderReverseTilt(data, heightDiff) {
     </div>`;
 }
 
+// ═══════════════════════════════════════════════
+// 高樓涵蓋：波束打在距離 D 的大樓立面上，涵蓋哪些高度／樓層
+// 高度 h = H_ant − D·tan(角度)，角度以水平往下為正（負值 = 上仰）
+// ═══════════════════════════════════════════════
+
+function fmtTilt(t) {
+  return t >= 0 ? `下傾 ${t.toFixed(1)}°` : `<span class="hr-up">上仰 ${(-t).toFixed(1)}°</span>`;
+}
+
+function renderHighRise(base, chips, antH, tilt) {
+  const D  = parseFloat(document.getElementById("calcBldDist").value);
+  const Hb = parseFloat(document.getElementById("calcBldHeight").value);
+  const fh = parseFloat(document.getElementById("calcFloorH").value);
+  const Ht = parseFloat(document.getElementById("calcTargetH").value);
+  if (isNaN(D) || D <= 0) return `<div class="calc-warn">請輸入大樓距離</div>`;
+
+  const hasB = !isNaN(Hb) && Hb > 0, hasF = !isNaN(fh) && fh > 0, hasT = !isNaN(Ht) && Ht >= 0;
+  const rad = x => x * Math.PI / 180, deg = r => r * 180 / Math.PI;
+  const hAt = a => a >= 90 ? -Infinity : a <= -90 ? Infinity : antH - D * Math.tan(rad(a));
+  const nFloors = hasB && hasF ? Math.max(1, Math.round(Hb / fh)) : Infinity;
+  const floorRange = (lo, hi) => {
+    if (!hasF) return "";
+    const f1 = Math.min(Math.floor(lo / fh) + 1, nFloors);
+    const f2 = Math.min(Math.max(Math.ceil(hi / fh), f1), nFloors);
+    return f1 === f2 ? `${f1}F` : `${f1}–${f2}F`;
+  };
+
+  // 整棟（0 ~ Hb）對天線的張角與置中下傾
+  const aBase = deg(Math.atan(antH / D));
+  const aRoof = hasB ? deg(Math.atan((antH - Hb) / D)) : NaN;
+  const span = aBase - aRoof, center = (aBase + aRoof) / 2;
+
+  const data = base.map(d => {
+    const top = hAt(d.aFar), bot = hAt(d.aNear), main = hAt(tilt);
+    const lo = Math.max(bot, 0), hi = hasB ? Math.min(top, Hb) : top;
+    const hit = hi > lo;
+    let state;
+    if (hit) state = `${lo.toFixed(1)}–${hi.toFixed(1)} m${hasB && top > Hb ? ' <span class="hr-sub">至樓頂</span>' : ""}`;
+    else if (top <= 0) state = `<span class="calc-inf">到達大樓前已落地</span>`;
+    else state = `<span class="calc-inf">從樓頂上方通過</span>`;
+    return { ...d, top, bot, main, lo, hi, hit, state, floors: hit ? floorRange(lo, hi) : "—" };
+  });
+  const sel = data[calcSelIdx];
+
+  const caption = [
+    ["大樓距離", fmtM(D)],
+    ["V-BW", `${sel.vbw}°`],
+    ["上緣", isFinite(sel.top) ? `${sel.top.toFixed(1)} m` : "∞"],
+    ["下緣", sel.bot > 0 ? `${sel.bot.toFixed(1)} m` : "地面"],
+    ["主瓣", sel.main > 0 ? `${sel.main.toFixed(1)} m` : "未達大樓"],
+  ].map(([k, v]) => `<span>${k} <b>${esc(v)}</b></span>`).join("");
+
+  const rows = data.map((d, i) => `<tr class="${i === calcSelIdx ? "sel" : ""}" onclick="selectCalcBand(${i})">
+      <td><span class="band-pill band-${d.grp}">${esc(d.b.Band_ID || "—")}</span></td>
+      <td style="color:var(--blue)">${d.vbw}°</td>
+      <td>${d.state}</td>
+      <td>${d.hit && hasF ? `<span class="calc-near">${d.floors}</span>` : '<span class="calc-inf">—</span>'}</td>
+      ${hasB ? `<td>${d.vbw >= span ? '<span class="calc-near">VBW 足夠</span>'
+        : `<span class="rev-warn">差 ${(span - d.vbw).toFixed(1)}°</span>`}</td>` : ""}
+    </tr>`).join("");
+
+  let rev = "";
+  if (hasT || hasB) {
+    rev += `<div class="calc-result-label" style="margin-top:16px">反推下傾角 · 大樓距離 ${fmtM(D)}</div>`;
+    if (hasT) {
+      const t = deg(Math.atan((antH - Ht) / D));
+      rev += `<div class="rev-main">
+        <span>主瓣對準 ${Ht} m${hasF ? `（${floorRange(Ht, Ht)}）` : ""}：<b class="rev-tilt">${fmtTilt(t)}</b></span>
+        <button class="rev-apply" onclick="applyTilt(${t})">套用</button></div>`;
+    }
+    if (hasB) {
+      rev += `<div class="rev-main">
+        <span>整棟 0–${Hb} m 置中：<b class="rev-tilt">${fmtTilt(center)}</b>，需 VBW ≥ ${span.toFixed(1)}°</span>
+        <button class="rev-apply" onclick="applyTilt(${center})">套用</button></div>`;
+    }
+    rev += `<div style="font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
+      θ = atan((H<sub>ant</sub> − 目標高度) / D)；上仰（負值）通常需機械／支架調整，多數天線電下傾不支援負角度
+    </div>`;
+  }
+
+  return `
+    <div class="calc-result-label">高樓涵蓋模擬圖</div>
+    <div class="sim-wrap">
+      <div class="sim-bands">${chips}</div>
+      <div class="sim-svg-box">${renderHighRiseSim(sel, antH, tilt, D, hasB ? Hb : NaN, hasF ? fh : NaN, hasT ? Ht : NaN)}</div>
+      <div class="sim-caption">${caption}</div>
+      <div class="sim-note">示意圖：水平距離未依比例；高度標示為實際計算值。</div>
+    </div>
+    <div class="calc-result-label">各頻段大樓涵蓋</div>
+    <div style="overflow-x:auto;margin:0 -14px;padding:0 14px 4px">
+    <table class="calc-table" style="min-width:${hasB ? 400 : 330}px">
+      <thead><tr>
+        <th>Band</th><th>V-BW</th><th>涵蓋高度</th><th style="color:var(--green)">樓層</th>
+        ${hasB ? `<th>置中涵蓋整棟（需 ${span.toFixed(1)}°）</th>` : ""}
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div style="margin-top:8px;font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
+      高度 = H<sub>ant</sub> − D·tan(角度) &nbsp;｜&nbsp; 上緣角 = θ − VBW/2，下緣角 = θ + VBW/2<br>
+      H<sub>ant</sub>=${antH}m &nbsp; D=${D}m &nbsp; θ=${tilt}°${hasF ? ` &nbsp; 樓高=${fh}m` : ""}
+    </div>
+    ${rev}`;
+}
+
+function renderHighRiseSim(d, antH, tilt, D, Hb, fh, Ht) {
+  const W = 360, H = 250, yG = 214, yPad = 24;
+  const x0 = 60, ax = x0 + 3, xb = 276, bw = 48;
+  const hasB = !isNaN(Hb);
+  const col = SIM_C[d.grp];
+  const t = simText, line = simLine;
+
+  const hMax = Math.max(antH, hasB ? Hb : Math.min(Math.max(d.top, 0), antH * 2.5),
+    isNaN(Ht) ? 0 : Ht, 1) * 1.15;
+  const ys = (yG - yPad) / hMax;
+  const Y = h => yG - h * ys;
+  const yA = Y(antH);
+  const clampY = y => Math.max(10, Math.min(yG - 4, y));
+
+  // 射線終點：打到大樓立面，或在到達前落地
+  const end = h => {
+    if (h >= 0) return { x: xb, y: Y(Math.min(h, hMax * 3)) };
+    const f = antH / (antH - h);
+    return { x: ax + f * (xb - ax), y: yG };
+  };
+  const pTop = end(d.top), pBot = end(d.bot), pMain = end(d.main);
+
+  let s = simFrame(W, H, yG, `高樓涵蓋模擬圖：${d.b.Band_ID || ""} 涵蓋 ${d.hit ? `${d.lo.toFixed(1)}–${d.hi.toFixed(1)} m` : "無"}`);
+
+  // 大樓與樓層線
+  const yRoof = hasB ? Y(Hb) : yPad - 10;
+  s += `<rect x="${xb}" y="${yRoof.toFixed(1)}" width="${bw}" height="${(yG - yRoof).toFixed(1)}"
+    fill="${SIM_C.halo}" stroke="${SIM_C.tower}" stroke-width="1.2"${hasB ? "" : ' stroke-dasharray="4 3"'}/>`;
+  if (!isNaN(fh)) {
+    const step = Math.max(1, Math.ceil(4 / (fh * ys)));   // 樓層線至少間隔 4px
+    for (let h = fh * step; h < (hasB ? Hb : hMax * 1.2); h += fh * step) {
+      s += line(xb, Y(h), xb + bw, Y(h), SIM_C.tower, 0.4);
+    }
+  }
+
+  // 0° 水平線
+  s += line(ax, yA, xb, yA, SIM_C.text3, 1, "4 3");
+  s += t(xb - 4, yA - 4, "0°", { anchor: "end", fill: SIM_C.text3 });
+
+  // 波束
+  const pts = [[ax, yA], [pTop.x, pTop.y]];
+  if (pTop.x === xb && pBot.x < xb) pts.push([xb, yG]);
+  pts.push([pBot.x, pBot.y]);
+  s += `<polygon points="${pts.map(p => p.map(v => v.toFixed(1)).join(",")).join(" ")}" fill="${col}" fill-opacity="0.2"/>`;
+  s += line(ax, yA, pTop.x, pTop.y, col, 1.4);
+  s += line(ax, yA, pBot.x, pBot.y, col, 1.4);
+  s += line(ax, yA, pMain.x, pMain.y, SIM_C.heading, 1.5, "5 3");
+
+  // 大樓上被照到的區段
+  if (d.hit) {
+    s += `<rect x="${xb}" y="${Y(d.hi).toFixed(1)}" width="${bw}" height="${(Y(d.lo) - Y(d.hi)).toFixed(1)}"
+      fill="${col}" fill-opacity="0.55"/>`;
+    let yHi = clampY(Y(d.hi) + 3), yLo = clampY(Y(d.lo) + 3);
+    if (yLo - yHi < 12) yLo = Math.min(yG - 4, yHi + 12);
+    s += t(xb - 4, yHi, `${d.hi.toFixed(1)}m`, { anchor: "end", fill: col, weight: 600 });
+    s += t(xb - 4, yLo, `${d.lo.toFixed(1)}m`, { anchor: "end", fill: col, weight: 600 });
+    if (d.floors !== "—" && !isNaN(fh)) {
+      s += t(xb + bw / 2, clampY((Y(d.hi) + Y(d.lo)) / 2 + 3), d.floors, { anchor: "middle", fill: SIM_C.heading, weight: 600 });
+    }
+  }
+
+  // 目標高度
+  if (!isNaN(Ht)) {
+    s += line(xb - 2, Y(Ht), xb + bw + 2, Y(Ht), SIM_C.far, 1.4, "3 2");
+    s += t(W - 2, clampY(Y(Ht) - 3), "目標", { anchor: "end", fill: SIM_C.far, size: 8.5, weight: 600 });
+  }
+
+  // 大樓高度
+  s += t(xb + bw / 2, Math.max(10, yRoof - 4), hasB ? `${Hb}m` : "大樓", { anchor: "middle", fill: SIM_C.heading, size: 9 });
+
+  // 傾角標示
+  const lx = ax + 46;
+  const ly = yA + (pMain.y - yA) * (46 / Math.max(1, pMain.x - ax));
+  s += t(lx, ly + (tilt >= 0 ? 12 : -5), tilt >= 0 ? `下傾 ${tilt}°` : `上仰 ${-tilt}°`,
+    { fill: tilt >= 0 ? SIM_C.heading : SIM_C.LB, weight: 600 });
+
+  s += simTower(x0, ax, yA, yG, tilt, antH);
+
+  // 距離 D
+  s += `<line x1="${ax}" y1="${yG + 17}" x2="${xb}" y2="${yG + 17}" stroke="${SIM_C.text2}" stroke-width="1"
+    marker-start="url(#simArrow)" marker-end="url(#simArrow)"/>`;
+  s += t((ax + xb) / 2, yG + 21, `D = ${fmtM(D)}`, { anchor: "middle", fill: SIM_C.heading, weight: 600 });
+
+  return s + `</svg>`;
+}
+
+// ── 模擬圖共用元件 ──
+function simText(x, y, s, o = {}) {
+  return `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="${o.size || 9.5}" fill="${o.fill || SIM_C.text2}"
+      text-anchor="${o.anchor || "start"}" font-weight="${o.weight || 400}"
+      stroke="${SIM_C.halo}" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${s}</text>`;
+}
+
+function simLine(x1, y1, x2, y2, col, w = 1, dash = "") {
+  return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
+      stroke="${col}" stroke-width="${w}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+}
+
+// 背景（天空 + 地面）與箭頭定義
+function simFrame(W, H, yG, ariaLabel) {
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${esc(ariaLabel)}">
+  <defs>
+    <linearGradient id="simSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${SIM_C.skyTop}"/><stop offset="1" stop-color="${SIM_C.skyBot}"/>
+    </linearGradient>
+    <marker id="simArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 z" fill="${SIM_C.text2}"/></marker>
+    <marker id="simArrowS" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="${SIM_C.text2}"/></marker>
+  </defs>
+  <rect x="0" y="0" width="${W}" height="${yG}" fill="url(#simSky)"/>
+  <rect x="0" y="${yG}" width="${W}" height="${H - yG}" fill="${SIM_C.soil2}"/>
+  <rect x="0" y="${yG}" width="${W}" height="4" fill="${SIM_C.soil}"/>
+  <rect x="0" y="${yG - 1.5}" width="${W}" height="2" fill="${SIM_C.grass}"/>`;
+}
+
+// 鐵塔 + 天線 + Ht 標註
+function simTower(x0, ax, yTop, yG, tilt, antH) {
+  const t = simText, line = simLine;
+  let s = "";
+  // 鐵塔
+  const legTop = yTop + 5, legL = x0 - 12, legR = x0 + 12;
+  s += `<g stroke="${SIM_C.tower}" stroke-width="1.6" fill="none" stroke-linecap="round">
+    <line x1="${legL}" y1="${yG}" x2="${x0 - 2}" y2="${legTop}"/>
+    <line x1="${legR}" y1="${yG}" x2="${x0 + 2}" y2="${legTop}"/>`;
+  const seg = 6;
+  for (let i = 0; i < seg; i++) {
+    const f1 = i / seg, f2 = (i + 1) / seg;
+    const yA = yG - (yG - legTop) * f1, yB = yG - (yG - legTop) * f2;
+    const lA = legL + (x0 - 2 - legL) * f1, rA = legR + (x0 + 2 - legR) * f1;
+    const lB = legL + (x0 - 2 - legL) * f2, rB = legR + (x0 + 2 - legR) * f2;
+    s += `<line x1="${lA.toFixed(1)}" y1="${yA.toFixed(1)}" x2="${rB.toFixed(1)}" y2="${yB.toFixed(1)}" stroke-width="0.9"/>
+      <line x1="${rA.toFixed(1)}" y1="${yA.toFixed(1)}" x2="${lB.toFixed(1)}" y2="${yB.toFixed(1)}" stroke-width="0.9"/>
+      <line x1="${lB.toFixed(1)}" y1="${yB.toFixed(1)}" x2="${rB.toFixed(1)}" y2="${yB.toFixed(1)}" stroke-width="0.9"/>`;
+  }
+  s += `</g>
+  <rect x="${x0 - 16}" y="${yG - 3}" width="32" height="5" rx="1.5" fill="${SIM_C.tower}"/>
+  <line x1="${x0}" y1="${legTop}" x2="${x0}" y2="${yTop - 10}" stroke="${SIM_C.tower}" stroke-width="1.6"/>
+  <g transform="rotate(${Math.max(-20, Math.min(20, tilt))} ${ax + 4} ${yTop})">
+    <rect x="${ax + 1.5}" y="${yTop - 11}" width="5.5" height="22" rx="1.5" fill="${SIM_C.heading}"/>
+  </g>
+  <circle cx="${x0}" cy="${yTop - 11}" r="2.2" fill="${SIM_C.heading}"/>`;
+  s += t(x0, yTop - 18, "天線", { anchor: "middle", fill: SIM_C.heading, weight: 600 });
+
+  // Ht 標註
+  s += line(14, yTop, x0 - 18, yTop, SIM_C.text3, 0.8);
+  s += `<line x1="24" y1="${yTop + 1}" x2="24" y2="${yG - 1}" stroke="${SIM_C.text2}" stroke-width="1"
+    marker-start="url(#simArrow)" marker-end="url(#simArrow)"/>`;
+  const yMidH = (yTop + yG) / 2;
+  s += `<text x="10" y="${yMidH}" font-size="12" font-weight="600" fill="${SIM_C.heading}"
+    stroke="${SIM_C.halo}" stroke-width="3" paint-order="stroke">H<tspan font-size="8" dy="3">t</tspan></text>`;
+  s += t(6, yMidH + 16, `${antH}m`, { size: 8.5 });
+  return s;
+}
+
 // 產生涵蓋模擬 SVG（類似 Transmitter / Receiver 側視示意圖）
 function renderCoverageSim(d, antH, userH, tilt) {
   const W = 360, H = 238;
@@ -1199,13 +1505,7 @@ function renderCoverageSim(d, antH, userH, tilt) {
   const pFar = ray(d.aFar, d.far), pNear = ray(d.aNear, d.near), pMain = ray(tilt, d.main);
   const drawAng = p => Math.atan2(p.y - yTop, p.x - ax);   // 圖上角度 (rad)
 
-  const t = (x, y, s, o = {}) =>
-    `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="${o.size || 9.5}" fill="${o.fill || SIM_C.text2}"
-      text-anchor="${o.anchor || "start"}" font-weight="${o.weight || 400}"
-      stroke="${SIM_C.halo}" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${s}</text>`;
-  const line = (x1, y1, x2, y2, col, w = 1, dash = "") =>
-    `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
-      stroke="${col}" stroke-width="${w}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+  const t = simText, line = simLine;
   const arc = (r, a1, a2, col, w = 1.2) => {
     const x1 = ax + r * Math.cos(a1), y1 = yTop + r * Math.sin(a1);
     const x2 = ax + r * Math.cos(a2), y2 = yTop + r * Math.sin(a2);
@@ -1213,21 +1513,7 @@ function renderCoverageSim(d, antH, userH, tilt) {
       fill="none" stroke="${col}" stroke-width="${w}" marker-end="url(#simArrowS)"/>`;
   };
 
-  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
-    aria-label="天線涵蓋模擬圖：${esc(d.b.Band_ID || "")} 近端 ${fmtM(d.near)}，遠端 ${fmtM(d.far)}">
-  <defs>
-    <linearGradient id="simSky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="${SIM_C.skyTop}"/><stop offset="1" stop-color="${SIM_C.skyBot}"/>
-    </linearGradient>
-    <marker id="simArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M0,0 L8,4 L0,8 z" fill="${SIM_C.text2}"/></marker>
-    <marker id="simArrowS" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto">
-      <path d="M0,0 L8,4 L0,8 z" fill="${SIM_C.text2}"/></marker>
-  </defs>
-  <rect x="0" y="0" width="${W}" height="${yG}" fill="url(#simSky)"/>
-  <rect x="0" y="${yG}" width="${W}" height="${H - yG}" fill="${SIM_C.soil2}"/>
-  <rect x="0" y="${yG}" width="${W}" height="4" fill="${SIM_C.soil}"/>
-  <rect x="0" y="${yG - 1.5}" width="${W}" height="2" fill="${SIM_C.grass}"/>`;
+  let s = simFrame(W, H, yG, `天線涵蓋模擬圖：${d.b.Band_ID || ""} 近端 ${fmtM(d.near)}，遠端 ${fmtM(d.far)}`);
 
   // 水平線 0°
   s += line(ax, yTop, xR, yTop, SIM_C.text3, 1, "4 3");
@@ -1262,38 +1548,7 @@ function renderCoverageSim(d, antH, userH, tilt) {
   s += t(ax + 88 * Math.cos(aMid) + 3, yTop + 88 * Math.sin(aMid) + 10,
     `VBW ${d.vbw}°`, { fill: bandCol, weight: 600 });
 
-  // 鐵塔
-  const legTop = yTop + 5, legL = x0 - 12, legR = x0 + 12;
-  s += `<g stroke="${SIM_C.tower}" stroke-width="1.6" fill="none" stroke-linecap="round">
-    <line x1="${legL}" y1="${yG}" x2="${x0 - 2}" y2="${legTop}"/>
-    <line x1="${legR}" y1="${yG}" x2="${x0 + 2}" y2="${legTop}"/>`;
-  const seg = 6;
-  for (let i = 0; i < seg; i++) {
-    const f1 = i / seg, f2 = (i + 1) / seg;
-    const yA = yG - (yG - legTop) * f1, yB = yG - (yG - legTop) * f2;
-    const lA = legL + (x0 - 2 - legL) * f1, rA = legR + (x0 + 2 - legR) * f1;
-    const lB = legL + (x0 - 2 - legL) * f2, rB = legR + (x0 + 2 - legR) * f2;
-    s += `<line x1="${lA.toFixed(1)}" y1="${yA.toFixed(1)}" x2="${rB.toFixed(1)}" y2="${yB.toFixed(1)}" stroke-width="0.9"/>
-      <line x1="${rA.toFixed(1)}" y1="${yA.toFixed(1)}" x2="${lB.toFixed(1)}" y2="${yB.toFixed(1)}" stroke-width="0.9"/>
-      <line x1="${lB.toFixed(1)}" y1="${yB.toFixed(1)}" x2="${rB.toFixed(1)}" y2="${yB.toFixed(1)}" stroke-width="0.9"/>`;
-  }
-  s += `</g>
-  <rect x="${x0 - 16}" y="${yG - 3}" width="32" height="5" rx="1.5" fill="${SIM_C.tower}"/>
-  <line x1="${x0}" y1="${legTop}" x2="${x0}" y2="${yTop - 10}" stroke="${SIM_C.tower}" stroke-width="1.6"/>
-  <g transform="rotate(${Math.max(-20, Math.min(20, tilt))} ${ax + 4} ${yTop})">
-    <rect x="${ax + 1.5}" y="${yTop - 11}" width="5.5" height="22" rx="1.5" fill="${SIM_C.heading}"/>
-  </g>
-  <circle cx="${x0}" cy="${yTop - 11}" r="2.2" fill="${SIM_C.heading}"/>`;
-  s += t(x0, yTop - 18, "天線", { anchor: "middle", fill: SIM_C.heading, weight: 600 });
-
-  // Ht 標註
-  s += line(14, yTop, x0 - 18, yTop, SIM_C.text3, 0.8);
-  s += `<line x1="24" y1="${yTop + 1}" x2="24" y2="${yG - 1}" stroke="${SIM_C.text2}" stroke-width="1"
-    marker-start="url(#simArrow)" marker-end="url(#simArrow)"/>`;
-  const yMidH = (yTop + yG) / 2;
-  s += `<text x="10" y="${yMidH}" font-size="12" font-weight="600" fill="${SIM_C.heading}"
-    stroke="${SIM_C.halo}" stroke-width="3" paint-order="stroke">H<tspan font-size="8" dy="3">t</tspan></text>`;
-  s += t(6, yMidH + 16, `${antH}m`, { size: 8.5 });
+  s += simTower(x0, ax, yTop, yG, tilt, antH);
 
   // 接收端（主瓣落點）
   if (pMain.hit) {
