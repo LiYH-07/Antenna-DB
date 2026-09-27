@@ -372,6 +372,25 @@
   .calc-table tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
   .calc-mode-tabs { margin-bottom: 12px; }
+  .calc-sub {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text2); letter-spacing: 0.08em;
+    margin: 14px 0 8px; display: flex; align-items: center; gap: 6px;
+  }
+  .calc-sub::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  /* ── PATH LOSS CHART ── */
+  .pl-title { font-family: var(--font-mono); font-size: 10px; color: var(--text2); margin-bottom: 6px; }
+  .pl-chart { position: relative; max-width: 540px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+  .pl-chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
+  .pl-chart text { font-family: var(--font-mono); }
+  .pl-tip {
+    position: absolute; top: 6px; pointer-events: none; display: none;
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: 6px;
+    padding: 5px 8px; box-shadow: 0 4px 14px rgba(75,70,64,0.15);
+    font-family: var(--font-mono); font-size: 10px; color: var(--text); line-height: 1.5; white-space: nowrap;
+  }
+  .pl-tip b { color: var(--heading); font-weight: 600; }
+  .pl-warn { font-family: var(--font-mono); font-size: 9.5px; color: var(--accent2); margin-top: 6px; line-height: 1.6; }
   .calc-inner[data-mode="high"] .only-ground,
   .calc-inner[data-mode="ground"] .only-high { display: none; }
   .hr-up { color: var(--blue); font-weight: 600; }
@@ -575,6 +594,34 @@
           <div class="calc-field">
             <div class="calc-label">目標涵蓋距離 (m) — 反推下傾角（選填）</div>
             <input class="calc-input" type="number" id="calcTarget" placeholder="例如 800" min="1" step="10" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="only-ground">
+          <div class="calc-sub">路徑損耗 · COST-231 Hata</div>
+          <div class="calc-row">
+            <div class="calc-field">
+              <div class="calc-label">發射功率 (dBm)</div>
+              <input class="calc-input" type="number" id="plTx" value="43" step="1" oninput="calcCoverage()">
+            </div>
+            <div class="calc-field">
+              <div class="calc-label">饋線／接頭損耗 (dB)</div>
+              <input class="calc-input" type="number" id="plCable" value="2" min="0" step="0.5" oninput="calcCoverage()">
+            </div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-field">
+              <div class="calc-label">環境</div>
+              <select class="calc-select" id="plEnv" onchange="calcCoverage()">
+                <option value="dense">大都會</option>
+                <option value="urban" selected>都市</option>
+                <option value="suburban">郊區</option>
+                <option value="rural">鄉村／空曠</option>
+              </select>
+            </div>
+            <div class="calc-field">
+              <div class="calc-label">接收門檻 (dBm)</div>
+              <input class="calc-input" type="number" id="plThr" value="-95" step="1" oninput="calcCoverage()">
+            </div>
           </div>
         </div>
         <div class="only-high">
@@ -1207,7 +1254,8 @@ function calcCoverage() {
       遠端 = (H<sub>ant</sub>−H<sub>user</sub>) / tan(θ−VBW/2)<br>
       H<sub>ant</sub>=${antH}m &nbsp; H<sub>user</sub>=${userH}m &nbsp; θ=${tilt}°
     </div>
-    ${renderReverseTilt(data, heightDiff)}`;
+    ${renderReverseTilt(data, heightDiff)}
+    ${renderPathLoss(data, antH, userH, tilt)}`;
 }
 
 // ── 反推下傾角：輸入目標距離 D，求所需總下傾 ──
@@ -1270,6 +1318,209 @@ function renderReverseTilt(data, heightDiff) {
       主瓣對準 θ = atan(ΔH / D) &nbsp;｜&nbsp; 上緣對準 θ = atan(ΔH / D) + VBW/2<br>
       上緣對準：波束上緣剛好落在目標距離，涵蓋不越過 D，常用於控制越區干擾
     </div>`;
+}
+
+// ═══════════════════════════════════════════════
+// 路徑損耗：Okumura-Hata（150–1500 MHz）／COST-231 Hata（1500–2000 MHz）
+// 接收電平 = 發射功率 − 饋線損耗 + 天線增益 − 垂直場型衰減 − 路徑損耗
+// ═══════════════════════════════════════════════
+
+const PL_ENV = { dense: "大都會", urban: "都市", suburban: "郊區", rural: "鄉村／空曠" };
+
+// f: MHz、hb: 天線高度 m、hm: 用戶高度 m、dKm: 距離 km
+function hataLoss(f, hb, hm, dKm, env) {
+  const lf = Math.log10(f), lhb = Math.log10(hb);
+  const big = env === "dense";
+  // 行動台天線高度修正 a(hm)
+  const ahm = big
+    ? (f <= 300 ? 8.29 * Math.log10(1.54 * hm) ** 2 - 1.1 : 3.2 * Math.log10(11.75 * hm) ** 2 - 4.97)
+    : (1.1 * lf - 0.7) * hm - (1.56 * lf - 0.8);
+  const cost = f > 1500;
+  let L = (cost ? 46.3 + 33.9 * lf : 69.55 + 26.16 * lf) - 13.82 * lhb - ahm
+    + (44.9 - 6.55 * lhb) * Math.log10(dKm) + (cost && big ? 3 : 0);
+  if (env === "suburban") L -= 2 * Math.log10(f / 28) ** 2 + 5.4;
+  if (env === "rural") L -= 4.78 * lf ** 2 - 18.33 * lf + 40.94;
+  return L;
+}
+
+// 計算用頻率：中華電信頻段篩選中取該頻段中心，否則取子頻段中心
+function plFreq(b) {
+  const r = getChtBandRange();
+  if (r) return (r.lo + r.hi) / 2;
+  const lo = parseFloat(b.SubBand_Low_MHz), hi = parseFloat(b.SubBand_High_MHz);
+  return isNaN(lo) || isNaN(hi) ? NaN : (lo + hi) / 2;
+}
+
+let plState = null;   // 目前圖表的資料，供 hover 使用
+
+function renderPathLoss(data, antH, userH, tilt) {
+  const tx = numVal("plTx"), cable = numVal("plCable") || 0, thr = numVal("plThr");
+  const env = document.getElementById("plEnv").value;
+  if (isNaN(tx) || isNaN(thr)) return "";
+  const hm = Math.max(userH, 0.5);
+  const dh = antH - userH;
+
+  // 每個頻段的接收電平函式 (d: km)
+  const model = d => {
+    const f = plFreq(d.b), g = parseFloat(d.b.Gain_dBi) || 0;
+    return {
+      f, g, cost: f > 1500,
+      at: dKm => {
+        const loss = hataLoss(f, antH, hm, dKm, env);
+        const att = vAtt(Math.atan2(dh, dKm * 1000) * 180 / Math.PI - tilt, d.vbw);
+        return { loss, att, prx: tx - cable + g - att - loss };
+      },
+    };
+  };
+
+  // 最遠仍 ≥ 門檻的距離（對數取樣 20 m ~ 50 km）
+  const maxRange = at => {
+    let best = 0;
+    for (let i = 0; i <= 1200; i++) {
+      const dKm = 0.02 * Math.pow(2500, i / 1200);
+      if (at(dKm).prx >= thr) best = dKm;
+    }
+    return best;
+  };
+
+  const models = data.map(d => ({ d, m: model(d) })).filter(x => !isNaN(x.m.f));
+  if (!models.length) return "";
+  const cell = (m, distM) => {
+    if (!isFinite(distM) || distM <= 0) return '<span class="calc-inf">—</span>';
+    const v = m.at(distM / 1000).prx;
+    return `<span class="${v >= thr ? "calc-near" : "rev-warn"}">${v.toFixed(1)}</span>`;
+  };
+
+  const rows = models.map(({ d, m }) => {
+    const i = data.indexOf(d), R = maxRange(m.at);
+    return `<tr class="${i === calcSelIdx ? "sel" : ""}" onclick="selectCalcBand(${i})">
+      <td><span class="band-pill band-${d.grp}">${esc(d.b.Band_ID || "—")}</span></td>
+      <td>${Math.round(m.f)}<br><span class="hr-sub">${m.cost ? "COST-231" : "Okumura"}</span></td>
+      <td>${m.g ? m.g : '<span class="rev-warn">無增益</span>'}</td>
+      <td>${cell(m, d.near)}</td>
+      <td>${cell(m, d.main)}</td>
+      <td>${cell(m, d.far)}</td>
+      <td><b class="rev-tilt">${R > 0 ? fmtM(R * 1000) : "—"}</b></td>
+    </tr>`;
+  }).join("");
+
+  // 適用範圍檢查
+  const warns = [];
+  const fs = models.map(x => x.m.f);
+  if (fs.some(f => f < 150 || f > 2000)) warns.push(`頻率超出 150–2000 MHz（${fs.filter(f => f < 150 || f > 2000).map(Math.round).join("、")} MHz 為外推）`);
+  if (antH < 30 || antH > 200) warns.push("天線高度超出 30–200 m");
+  if (userH < 1 || userH > 10) warns.push("用戶高度超出 1–10 m");
+  warns.push("1 km 以內為模型外推");
+
+  const sel = models.find(x => data.indexOf(x.d) === calcSelIdx) || models[0];
+  const selR = maxRange(sel.m.at);
+
+  return `
+    <div class="calc-result-label" style="margin-top:16px">路徑損耗 · ${PL_ENV[env]} · 門檻 ${thr} dBm</div>
+    ${renderPlChart(sel, thr, selR)}
+    <div style="overflow-x:auto;margin:10px -14px 0;padding:0 14px 4px">
+    <table class="calc-table" style="min-width:470px">
+      <thead><tr>
+        <th>Band</th><th>頻率 MHz</th><th>增益</th>
+        <th>近端 dBm</th><th>主瓣 dBm</th><th>遠端 dBm</th><th>最大涵蓋</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div class="pl-warn">⚠ ${warns.join("；")}，結果僅供參考</div>
+    <div style="margin-top:6px;font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
+      接收電平 = P<sub>tx</sub> − 饋線損耗 + 增益 − 垂直場型衰減 − L<sub>Hata</sub><br>
+      發射功率輸入 RS 功率（例如 15 dBm）即為 RSRP；未計陰影衰落餘量、人體與建物穿透損耗
+    </div>`;
+}
+
+function renderPlChart(sel, thr, R) {
+  const { d, m } = sel;
+  const W = 360, H = 210, l = 40, r = 12, t = 16, b = 30;
+  const xMax = Math.min(30, Math.max(1.2, (R || 1) * 1.3, isFinite(d.far) ? d.far / 1000 * 1.2 : 0));
+  const N = 240;
+  const pts = [];
+  for (let i = 1; i <= N; i++) { const dk = xMax * i / N; pts.push([dk, m.at(dk).prx]); }
+  const vs = pts.map(p => p[1]);
+  const yTop = Math.ceil(Math.max(...vs, thr) / 10) * 10;
+  const yBot = Math.floor(Math.min(...vs, thr - 10) / 10) * 10;
+  const X = dk => l + dk / xMax * (W - l - r);
+  const Y = v => t + (yTop - v) / (yTop - yBot) * (H - t - b);
+  const col = SIM_C[d.grp];
+  plState = { at: m.at, xMax, X, Y, W, l, r, thr };
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
+    aria-label="接收電平對距離：${esc(d.b.Band_ID || "")}，最大涵蓋 ${R > 0 ? fmtM(R * 1000) : "無"}">`;
+
+  // 1 km 以內：模型外推區
+  const x1 = X(Math.min(1, xMax));
+  s += `<rect x="${l}" y="${t}" width="${(x1 - l).toFixed(1)}" height="${H - t - b}" fill="${SIM_C.soil2}" fill-opacity="0.45"/>`;
+  s += simText(l + 4, t + 10, "外推", { size: 8.5, fill: SIM_C.text3 });
+
+  // 格線與 Y 軸
+  const yStep = (yTop - yBot) / 10 > 7 ? 20 : 10;
+  for (let v = yBot; v <= yTop; v += yStep) {
+    s += `<line x1="${l}" y1="${Y(v).toFixed(1)}" x2="${W - r}" y2="${Y(v).toFixed(1)}" stroke="#D8D0C6" stroke-width="0.6"/>`;
+    s += `<text x="${l - 5}" y="${(Y(v) + 3).toFixed(1)}" font-size="8.5" fill="${SIM_C.text3}" text-anchor="end">${v}</text>`;
+  }
+  // X 軸刻度
+  const xStep = [0.1, 0.2, 0.5, 1, 2, 5, 10].find(st => xMax / st <= 6) || 10;
+  for (let v = 0; v <= xMax + 1e-9; v += xStep) {
+    s += `<text x="${X(v).toFixed(1)}" y="${H - b + 13}" font-size="8.5" fill="${SIM_C.text3}" text-anchor="middle">${+v.toFixed(1)}</text>`;
+  }
+  s += `<text x="${W - r}" y="${H - 4}" font-size="8.5" fill="${SIM_C.text2}" text-anchor="end">距離 km</text>`;
+  s += `<text x="4" y="${t - 5}" font-size="8.5" fill="${SIM_C.text2}">dBm</text>`;
+  s += `<line x1="${l}" y1="${H - b}" x2="${W - r}" y2="${H - b}" stroke="${SIM_C.text3}" stroke-width="0.8"/>`;
+
+  // 門檻線
+  s += `<line x1="${l}" y1="${Y(thr).toFixed(1)}" x2="${W - r}" y2="${Y(thr).toFixed(1)}" stroke="${SIM_C.text2}" stroke-width="1" stroke-dasharray="4 3"/>`;
+  s += simText(W - r - 2, Y(thr) - 4, `門檻 ${thr}`, { anchor: "end", size: 8.5, fill: SIM_C.text2 });
+
+  // 接收電平曲線
+  s += `<path d="${pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("")}"
+    fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+
+  // 最大涵蓋距離
+  if (R > 0 && R <= xMax) {
+    s += `<line x1="${X(R).toFixed(1)}" y1="${Y(thr).toFixed(1)}" x2="${X(R).toFixed(1)}" y2="${H - b}" stroke="${SIM_C.text2}" stroke-width="0.8" stroke-dasharray="2 2"/>`;
+    s += `<circle cx="${X(R).toFixed(1)}" cy="${Y(thr).toFixed(1)}" r="4" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2"/>`;
+    s += simText(X(R) - 6, Y(thr) + 14, `最大 ${fmtM(R * 1000)}`, { anchor: "end", size: 9, fill: SIM_C.heading, weight: 600 });
+  }
+
+  // hover 層
+  s += `<line id="plCross" x1="0" y1="${t}" x2="0" y2="${H - b}" stroke="${SIM_C.text2}" stroke-width="0.8" visibility="hidden"/>
+    <circle id="plDot" r="4" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2" visibility="hidden"/>
+    <rect x="${l}" y="${t}" width="${W - l - r}" height="${H - t - b}" fill="transparent"
+      onpointermove="plHover(event)" onpointerdown="plHover(event)" onpointerleave="plHide()"/>`;
+
+  return `<div class="pl-title">接收電平 vs 距離 · ${esc(d.b.Band_ID || "—")} ${Math.round(m.f)} MHz</div>
+    <div class="pl-chart" id="plChart">${s}</svg><div class="pl-tip" id="plTip"></div></div>`;
+}
+
+function plHover(ev) {
+  if (!plState) return;
+  const box = document.getElementById("plChart");
+  const svg = box.querySelector("svg").getBoundingClientRect();
+  const { at, xMax, X, Y, W, l, r, thr } = plState;
+  const vx = (ev.clientX - svg.left) / svg.width * W;
+  const dk = Math.max(xMax / 240, Math.min(xMax, (vx - l) / (W - l - r) * xMax));
+  const v = at(dk);
+  const cx = X(dk), cy = Y(v.prx);
+  const cross = document.getElementById("plCross"), dot = document.getElementById("plDot");
+  cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("visibility", "visible");
+  dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.setAttribute("visibility", "visible");
+  const tip = document.getElementById("plTip");
+  tip.innerHTML = `距離 <b>${fmtM(dk * 1000)}</b><br>接收 <b>${v.prx.toFixed(1)} dBm</b>${v.prx < thr ? " ⚠" : ""}<br>
+    路損 ${v.loss.toFixed(1)} dB · 場型 −${v.att.toFixed(1)} dB`;
+  tip.style.display = "block";
+  const px = cx / W * svg.width;
+  const left = px > svg.width / 2 ? px - tip.offsetWidth - 10 : px + 10;
+  tip.style.left = `${Math.max(4, left)}px`;
+}
+
+function plHide() {
+  ["plCross", "plDot"].forEach(id => document.getElementById(id)?.setAttribute("visibility", "hidden"));
+  const tip = document.getElementById("plTip");
+  if (tip) tip.style.display = "none";
 }
 
 // ═══════════════════════════════════════════════
