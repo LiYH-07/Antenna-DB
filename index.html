@@ -399,6 +399,93 @@
   }
   .sim-caption span b { color: var(--heading); font-weight: 500; }
   .sim-note { font-family: var(--font-mono); font-size: 9px; color: var(--text3); margin-top: 4px; line-height: 1.6; }
+
+  /* ── REVERSE TILT ── */
+  .rev-main {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px;
+    padding: 8px 10px; margin-bottom: 8px;
+    font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+  }
+  .rev-tilt { color: var(--heading); font-weight: 600; }
+  .rev-warn { color: var(--red); }
+  .rev-apply {
+    background: none; border: 1px solid var(--blue); color: var(--blue); border-radius: 6px;
+    padding: 3px 9px; font-family: var(--font-mono); font-size: 10px; cursor: pointer; white-space: nowrap;
+  }
+  .rev-apply:active { background: var(--blue); color: #fff; }
+
+  /* ── COMPARE ── */
+  .cmp-btn {
+    flex-shrink: 0; background: var(--bg3); border: 1px solid var(--border2); color: var(--text2);
+    border-radius: 14px; padding: 4px 9px; cursor: pointer;
+    font-family: var(--font-mono); font-size: 10px; white-space: nowrap; transition: all 0.15s;
+  }
+  .cmp-btn.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+  .cmp-bar {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    width: calc(100% - 32px); max-width: 648px; z-index: 900;
+    display: none; align-items: center; gap: 8px;
+    background: var(--bg2); border: 1px solid var(--blue); border-radius: 12px;
+    padding: 10px 12px; box-shadow: 0 8px 28px rgba(75,70,64,0.18);
+  }
+  .cmp-bar.show { display: flex; }
+  body.has-cmp .footer { padding-bottom: 84px; }
+  .cmp-bar-text { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11px; color: var(--text2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmp-bar-text.warn { color: var(--red); }
+  .cmp-bar button {
+    border-radius: 7px; padding: 7px 12px; cursor: pointer; white-space: nowrap;
+    font-family: var(--font-cond); font-size: 14px; font-weight: 600; letter-spacing: 0.04em;
+  }
+  .cmp-clear { background: none; border: 1px solid var(--border2); color: var(--text2); }
+  .cmp-go { background: var(--blue); border: 1px solid var(--blue); color: #fff; }
+  .cmp-go:disabled { opacity: 0.45; cursor: default; }
+
+  .cmp-overlay {
+    position: fixed; inset: 0; z-index: 1000; background: var(--bg);
+    display: none; flex-direction: column;
+  }
+  .cmp-overlay.open { display: flex; }
+  .cmp-head {
+    display: flex; align-items: center; gap: 10px; padding: 14px 16px;
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+  }
+  .cmp-title { flex: 1; font-family: var(--font-cond); font-size: 18px; font-weight: 700; color: var(--heading); letter-spacing: 0.06em; }
+  .cmp-close { background: none; border: 1px solid var(--border2); border-radius: 7px; color: var(--text2);
+    font-size: 13px; padding: 5px 12px; cursor: pointer; font-family: var(--font-body); }
+  .cmp-body { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; padding-bottom: 24px; }
+  .cmp-note { font-family: var(--font-mono); font-size: 9px; color: var(--text3); padding: 12px 16px 10px; line-height: 1.6; }
+  .cmp-table { border-collapse: separate; border-spacing: 0; font-size: 11px; min-width: 100%; }
+  .cmp-table th, .cmp-table td {
+    padding: 8px 10px; border-bottom: 1px solid var(--border2);
+    text-align: left; vertical-align: top; background: var(--bg);
+  }
+  .cmp-table thead th { background: var(--bg2); position: sticky; top: 0; z-index: 2; min-width: 138px; }
+  .cmp-table .rowh {
+    position: sticky; left: 0; z-index: 1; min-width: 78px; max-width: 78px;
+    background: var(--bg3); color: var(--text3); font-family: var(--font-mono); font-size: 9px;
+    letter-spacing: 0.06em; border-right: 1px solid var(--border);
+  }
+  .cmp-table thead .rowh { z-index: 3; background: var(--bg3); }
+  .cmp-table tr.sec td {
+    background: var(--bg3); color: var(--text2); font-family: var(--font-mono); font-size: 10px;
+    letter-spacing: 0.1em; padding: 6px 10px;
+  }
+  .cmp-table tr.sec td span { position: sticky; left: 10px; }
+  .cmp-ant-name { font-family: var(--font-cond); font-size: 15px; font-weight: 700; color: var(--heading); word-break: break-word; }
+  .cmp-ant-mfr { font-size: 11px; color: var(--text2); margin-top: 1px; font-weight: 400; }
+  .cmp-rm { margin-top: 5px; background: none; border: none; color: var(--text3); font-size: 10px;
+    font-family: var(--font-mono); cursor: pointer; padding: 0; }
+  .cmp-val { font-size: 12px; color: var(--text); }
+  .cmp-line { font-family: var(--font-mono); font-size: 10.5px; color: var(--text); line-height: 1.55; white-space: nowrap; }
+  .cmp-line .f { color: var(--heading); font-weight: 500; }
+  .cmp-line .g { color: var(--accent2); }
+  .cmp-line .bw { color: var(--blue); }
+  .cmp-none { color: var(--text3); font-family: var(--font-mono); font-size: 10px; }
+  .cmp-best { background: var(--accent-tint) !important; }
+  .cmp-best .g, .cmp-best .cmp-val { font-weight: 700; }
 </style>
 </head>
 <body>
@@ -429,7 +516,7 @@
       <div class="filter-group-tab" onclick="switchFilterGroup('cht', this)">中華電信 Band</div>
     </div>
     <div class="filter-row" id="filterRow">
-      <div class="filter-chip active" onclick="setFilter('all', this)">全部</div>
+      <div class="filter-chip active" data-filter="all">全部</div>
     </div>
   </div>
 
@@ -465,6 +552,12 @@
             <input class="calc-input" type="number" id="calcTilt" value="6" min="0" max="90" step="0.5" oninput="calcCoverage()">
           </div>
         </div>
+        <div class="calc-row full">
+          <div class="calc-field">
+            <div class="calc-label">目標涵蓋距離 (m) — 反推下傾角（選填）</div>
+            <input class="calc-input" type="number" id="calcTarget" placeholder="例如 800" min="1" step="10" oninput="calcCoverage()">
+          </div>
+        </div>
         <div class="calc-result" id="calcResult"></div>
       </div>
     </div>
@@ -486,6 +579,22 @@
   </div>
 </div>
 
+<!-- COMPARE BAR -->
+<div class="cmp-bar" id="cmpBar">
+  <div class="cmp-bar-text" id="cmpBarText"></div>
+  <button class="cmp-clear" onclick="clearCompare()">清除</button>
+  <button class="cmp-go" id="cmpGo" onclick="openCompare()">比較</button>
+</div>
+
+<!-- COMPARE VIEW -->
+<div class="cmp-overlay" id="cmpOverlay" role="dialog" aria-modal="true" aria-labelledby="cmpTitle">
+  <div class="cmp-head">
+    <div class="cmp-title" id="cmpTitle">天線比較</div>
+    <button class="cmp-close" onclick="closeCompare()">✕ 關閉</button>
+  </div>
+  <div class="cmp-body" id="cmpBody"></div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════
 // DATA LAYER — fetch from Google Sheets CSV
@@ -498,6 +607,12 @@ let openCardId = null;
 
 function csvURL(sheetName) {
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+}
+
+// 表格內容一律跳脫後再放進 HTML（名稱含 ' " < & 等字元也不會壞掉）
+function esc(v) {
+  return String(v ?? "").replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
 function parseCSV(text) {
@@ -619,33 +734,30 @@ function buildFilters() {
   buildMfrFilters();
 }
 
+// chip 的篩選值放在 data-filter，由 filterRow 統一處理點擊（見 INIT）
+function chipHTML(val, labelHTML, active, cls = "") {
+  return `<div class="filter-chip${cls}${active ? " active" : ""}" data-filter="${esc(val)}">${labelHTML}</div>`;
+}
+
 function buildMfrFilters() {
   const mfrs = [...new Set(masterData.map(a => a.Manufacturer).filter(Boolean))];
-  const row = document.getElementById("filterRow");
-  row.innerHTML = `<div class="filter-chip active" onclick="setFilter('all', this)">全部</div>`;
-  mfrs.forEach(m => {
-    const short = m.replace(/\s*\(.*\)/, "").trim();
-    row.innerHTML += `<div class="filter-chip" onclick="setFilter('${m}', this)">${short}</div>`;
-  });
+  document.getElementById("filterRow").innerHTML = chipHTML("all", "全部", true) +
+    mfrs.map(m => chipHTML(m, esc(m.replace(/\s*\(.*\)/, "").trim()), false)).join("");
 }
 
 function buildPortFilters() {
   const ports = [...new Set(masterData.map(a => a.Port_Count).filter(Boolean))]
     .map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
-  const row = document.getElementById("filterRow");
-  row.innerHTML = `<div class="filter-chip port-chip active" onclick="setFilter('all', this)">全部</div>`;
-  ports.forEach(p => {
-    row.innerHTML += `<div class="filter-chip port-chip" onclick="setFilter('port:${p}', this)">${p} Port</div>`;
-  });
+  document.getElementById("filterRow").innerHTML = chipHTML("all", "全部", true, " port-chip") +
+    ports.map(p => chipHTML(`port:${p}`, `${p} Port`, false, " port-chip")).join("");
 }
 
 function buildChtBandFilters() {
-  const row = document.getElementById("filterRow");
-  row.innerHTML = `<div class="filter-chip active" onclick="setFilter('all', this)">全部</div>`;
-  Object.keys(CHT_BANDS).forEach(key => {
-    const b = CHT_BANDS[key];
-    row.innerHTML += `<div class="filter-chip" onclick="setFilter('band:${key}', this)">${b.label} <span style="font-size:9px;opacity:0.7">${b.lo}–${b.hi}</span></div>`;
-  });
+  document.getElementById("filterRow").innerHTML = chipHTML("all", "全部", true) +
+    Object.keys(CHT_BANDS).map(key => {
+      const b = CHT_BANDS[key];
+      return chipHTML(`band:${key}`, `${b.label} <span style="font-size:9px;opacity:0.7">${b.lo}–${b.hi}</span>`, false);
+    }).join("");
 }
 
 function switchFilterGroup(group, el) {
@@ -718,6 +830,7 @@ function renderList() {
 
   if (list.length === 0) {
     container.innerHTML = `<div class="no-results">🔍 找不到符合的天線</div>`;
+    renderCompareBar();
     return;
   }
 
@@ -727,12 +840,13 @@ function renderList() {
 
   // re-attach open state
   if (openCardId) {
-    const el = document.getElementById(`card-${openCardId}`);
+    const el = [...container.querySelectorAll(".antenna-card")].find(c => c.dataset.name === openCardId);
     if (el) {
       el.classList.add("active");
       el.querySelector(".detail-panel").classList.add("open");
     }
   }
+  renderCompareBar();
 }
 
 function renderCard(a, idx) {
@@ -742,32 +856,33 @@ function renderCard(a, idx) {
   if (chtRange) {
     bands = bands.filter(b => bandRowMatchesCht(b, chtRange));
   }
-  const id = a.Antenna_Name.replace(/\s/g, "_");
   const dimStr = [a.Length_mm, a.Width_mm, a.Depth_mm].filter(Boolean).map(v => `${v}`).join(" × ");
+  const inCmp = compareList.includes(a.Antenna_Name);
 
   return `
-  <div class="antenna-card" id="card-${id}" style="animation-delay:${idx * 0.04}s" onclick="toggleCard('${id}')">
+  <div class="antenna-card" data-name="${esc(a.Antenna_Name)}" style="animation-delay:${idx * 0.04}s" onclick="toggleCard(this)">
     <div class="card-header">
       <div class="card-badge">📡</div>
       <div class="card-info">
-        <div class="card-name">${a.Antenna_Name}</div>
-        <div class="card-mfr">${a.Manufacturer || "—"}</div>
+        <div class="card-name">${esc(a.Antenna_Name)}</div>
+        <div class="card-mfr">${esc(a.Manufacturer || "—")}</div>
         <div class="card-tags">
-          ${a.Port_Count ? `<span class="tag tag-port">${a.Port_Count}P</span>` : ""}
-          ${a.Weight_kg ? `<span class="tag tag-weight">⚖ ${a.Weight_kg} kg</span>` : ""}
-          ${dimStr ? `<span class="tag tag-dim">📐 ${dimStr} mm</span>` : ""}
+          ${a.Port_Count ? `<span class="tag tag-port">${esc(a.Port_Count)}P</span>` : ""}
+          ${a.Weight_kg ? `<span class="tag tag-weight">⚖ ${esc(a.Weight_kg)} kg</span>` : ""}
+          ${dimStr ? `<span class="tag tag-dim">📐 ${esc(dimStr)} mm</span>` : ""}
         </div>
       </div>
+      <button class="cmp-btn${inCmp ? " on" : ""}" onclick="event.stopPropagation(); toggleCompare(this)">${inCmp ? "✓ 比較" : "＋ 比較"}</button>
       <span class="chevron">▾</span>
     </div>
-    <div class="detail-panel" id="panel-${id}">
+    <div class="detail-panel">
       <div class="detail-inner">
         ${renderSpecs(a)}
         ${renderBandTable(bands)}
         ${a.Notes ? `
         <div class="notes-box">
           <div class="spec-label">備註</div>
-          <div class="spec-val">${a.Notes}</div>
+          <div class="spec-val">${esc(a.Notes)}</div>
         </div>` : ""}
       </div>
     </div>
@@ -789,7 +904,7 @@ function renderSpecs(a) {
     ${items.map(i => `
       <div class="spec-item${i.full ? " full" : ""}">
         <div class="spec-label">${i.label}</div>
-        <div class="spec-val${i.mono ? " mono" : ""}">${i.val}</div>
+        <div class="spec-val${i.mono ? " mono" : ""}">${esc(i.val)}</div>
       </div>`).join("")}
   </div>`;
 }
@@ -822,13 +937,13 @@ function renderBandTable(bands) {
     <tbody>
       ${bands.map(b => `
         <tr>
-          <td><span class="band-pill ${getBandClass(b.Band_ID)}">${b.Band_ID || "—"}</span></td>
-          <td class="freq-range">${b.SubBand_Low_MHz}–${b.SubBand_High_MHz}</td>
-          <td class="gain-val">${b.Gain_dBi || "—"}</td>
-          <td class="bw-val">${b.Horizontal_BW_deg || "—"}</td>
-          <td class="bw-val">${b.Vertical_BW_deg || "—"}</td>
-          <td>${b.Electrical_Tilt_Range_deg || "—"}</td>
-          <td style="color:var(--text2);max-width:120px;white-space:normal">${b.Notes || ""}</td>
+          <td><span class="band-pill ${getBandClass(b.Band_ID)}">${esc(b.Band_ID || "—")}</span></td>
+          <td class="freq-range">${esc(b.SubBand_Low_MHz)}–${esc(b.SubBand_High_MHz)}</td>
+          <td class="gain-val">${esc(b.Gain_dBi || "—")}</td>
+          <td class="bw-val">${esc(b.Horizontal_BW_deg || "—")}</td>
+          <td class="bw-val">${esc(b.Vertical_BW_deg || "—")}</td>
+          <td>${esc(b.Electrical_Tilt_Range_deg || "—")}</td>
+          <td style="color:var(--text2);max-width:120px;white-space:normal">${esc(b.Notes || "")}</td>
         </tr>`).join("")}
     </tbody>
   </table>
@@ -938,7 +1053,7 @@ function calcCoverage() {
 
   const chips = data.map((d, i) => `
     <div class="sim-chip c-${d.grp}${i === calcSelIdx ? " sel" : ""}" data-i="${i}" onclick="selectCalcBand(${i})">
-      <b>${d.b.Band_ID || "—"}</b>${d.b.SubBand_Low_MHz || "?"}–${d.b.SubBand_High_MHz || "?"}
+      <b>${esc(d.b.Band_ID || "—")}</b>${esc(d.b.SubBand_Low_MHz || "?")}–${esc(d.b.SubBand_High_MHz || "?")}
     </div>`).join("");
 
   const sb = sel.b;
@@ -949,11 +1064,11 @@ function calcCoverage() {
     ["V-BW", `${sel.vbw}°`],
     ["電下傾", sb.Electrical_Tilt_Range_deg || "—"],
     ["主瓣落點", fmtM(sel.main)],
-  ].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join("");
+  ].map(([k, v]) => `<span>${k} <b>${esc(v)}</b></span>`).join("");
 
   const rows = data.map((d, i) => `<tr class="${i === calcSelIdx ? "sel" : ""}" onclick="selectCalcBand(${i})">
-      <td><span class="band-pill band-${d.grp}">${d.b.Band_ID || "—"}</span></td>
-      <td>${d.b.SubBand_Low_MHz || "—"}–${d.b.SubBand_High_MHz || "—"} MHz</td>
+      <td><span class="band-pill band-${d.grp}">${esc(d.b.Band_ID || "—")}</span></td>
+      <td>${esc(d.b.SubBand_Low_MHz || "—")}–${esc(d.b.SubBand_High_MHz || "—")} MHz</td>
       <td style="color:var(--blue)">${d.vbw}°</td>
       <td>${isFinite(d.near) ? `<span class="calc-near">${fmtM(d.near)}</span>` : '<span class="calc-inf">∞</span>'}</td>
       <td>${isFinite(d.far) ? `<span class="calc-far">${fmtM(d.far)}</span>` : '<span class="calc-inf">∞</span>'}</td>
@@ -982,6 +1097,69 @@ function calcCoverage() {
       近端 = (H<sub>ant</sub>−H<sub>user</sub>) / tan(θ＋VBW/2) &nbsp;｜&nbsp;
       遠端 = (H<sub>ant</sub>−H<sub>user</sub>) / tan(θ−VBW/2)<br>
       H<sub>ant</sub>=${antH}m &nbsp; H<sub>user</sub>=${userH}m &nbsp; θ=${tilt}°
+    </div>
+    ${renderReverseTilt(data, heightDiff)}`;
+}
+
+// ── 反推下傾角：輸入目標距離 D，求所需總下傾 ──
+// 主瓣對準：θ = atan(ΔH / D)
+// 上緣對準：θ = atan(ΔH / D) + VBW/2（波束上緣落在 D，常用於控制越區干擾）
+function parseTiltRange(s) {
+  const n = String(s || "").match(/\d+(\.\d+)?/g);
+  if (!n || n.length < 2) return null;
+  return { lo: parseFloat(n[0]), hi: parseFloat(n[1]) };
+}
+
+function tiltRangeNote(t, rangeStr) {
+  const r = parseTiltRange(rangeStr);
+  if (!r) return `<span class="calc-inf">—</span>`;
+  if (t > r.hi) return `<span class="rev-warn">需機械 +${(t - r.hi).toFixed(1)}°</span>`;
+  if (t < r.lo) return `<span class="rev-warn">低於電下傾 ${r.lo}°</span>`;
+  return `<span class="calc-near">電下傾可達</span>`;
+}
+
+function applyTilt(t, bandIdx) {
+  document.getElementById("calcTilt").value = t.toFixed(1);
+  if (bandIdx !== undefined) calcSelIdx = bandIdx;
+  calcCoverage();
+}
+
+function renderReverseTilt(data, heightDiff) {
+  const D = parseFloat(document.getElementById("calcTarget").value);
+  if (isNaN(D) || D <= 0) return "";
+
+  const deg = r => r * 180 / Math.PI;
+  const base = deg(Math.atan(heightDiff / D));
+  const rows = data.map((d, i) => {
+    const t = base + d.vbw / 2;
+    const near = heightDiff / Math.tan((t + d.vbw / 2) * Math.PI / 180);
+    return `<tr class="${i === calcSelIdx ? "sel" : ""}" onclick="selectCalcBand(${i})">
+      <td><span class="band-pill band-${d.grp}">${esc(d.b.Band_ID || "—")}</span></td>
+      <td style="color:var(--blue)">${d.vbw}°</td>
+      <td><b class="rev-tilt">${t.toFixed(1)}°</b></td>
+      <td><span class="calc-near">${fmtM(near)}</span></td>
+      <td>${tiltRangeNote(t, d.b.Electrical_Tilt_Range_deg)}</td>
+      <td><button class="rev-apply" onclick="event.stopPropagation(); applyTilt(${t}, ${i})">套用</button></td>
+    </tr>`;
+  }).join("");
+
+  return `
+    <div class="calc-result-label" style="margin-top:16px">反推下傾角 · 目標 ${fmtM(D)}</div>
+    <div class="rev-main">
+      <span>主瓣對準 ${fmtM(D)}：總下傾 <b class="rev-tilt">${base.toFixed(1)}°</b></span>
+      <button class="rev-apply" onclick="applyTilt(${base})">套用</button>
+    </div>
+    <div style="overflow-x:auto;margin:0 -14px;padding:0 14px 4px">
+    <table class="calc-table" style="min-width:440px">
+      <thead><tr>
+        <th>Band</th><th>V-BW</th><th>上緣對準下傾</th>
+        <th style="color:var(--green)">近端</th><th>電下傾範圍</th><th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+    <div style="margin-top:8px;font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
+      主瓣對準 θ = atan(ΔH / D) &nbsp;｜&nbsp; 上緣對準 θ = atan(ΔH / D) + VBW/2<br>
+      上緣對準：波束上緣剛好落在目標距離，涵蓋不越過 D，常用於控制越區干擾
     </div>`;
 }
 
@@ -1036,7 +1214,7 @@ function renderCoverageSim(d, antH, userH, tilt) {
   };
 
   let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
-    aria-label="天線涵蓋模擬圖：${d.b.Band_ID || ""} 近端 ${fmtM(d.near)}，遠端 ${fmtM(d.far)}">
+    aria-label="天線涵蓋模擬圖：${esc(d.b.Band_ID || "")} 近端 ${fmtM(d.near)}，遠端 ${fmtM(d.far)}">
   <defs>
     <linearGradient id="simSky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="${SIM_C.skyTop}"/><stop offset="1" stop-color="${SIM_C.skyBot}"/>
@@ -1156,9 +1334,162 @@ function getBandClassCalc(id) {
   return "band-" + bandGroup(id);
 }
 
-function toggleCard(id) {
-  const card = document.getElementById(`card-${id}`);
-  const panel = document.getElementById(`panel-${id}`);
+// ═══════════════════════════════════════════════
+// COMPARE — 最多 3 支天線並排比較
+// ═══════════════════════════════════════════════
+
+const COMPARE_MAX = 3;
+let compareList = [];
+let cmpWarnTimer = null;
+
+function toggleCompare(btn) {
+  const name = btn.closest(".antenna-card").dataset.name;
+  const i = compareList.indexOf(name);
+  if (i >= 0) {
+    compareList.splice(i, 1);
+  } else if (compareList.length >= COMPARE_MAX) {
+    renderCompareBar(`最多比較 ${COMPARE_MAX} 支，請先取消其中一支`);
+    return;
+  } else {
+    compareList.push(name);
+  }
+  const on = compareList.includes(name);
+  btn.classList.toggle("on", on);
+  btn.textContent = on ? "✓ 比較" : "＋ 比較";
+  renderCompareBar();
+}
+
+function clearCompare() {
+  compareList = [];
+  document.querySelectorAll(".cmp-btn.on").forEach(b => { b.classList.remove("on"); b.textContent = "＋ 比較"; });
+  renderCompareBar();
+}
+
+function renderCompareBar(warn) {
+  // 資料重整後可能已無此天線
+  compareList = compareList.filter(n => masterData.some(a => a.Antenna_Name === n));
+  const bar = document.getElementById("cmpBar");
+  const text = document.getElementById("cmpBarText");
+  const show = compareList.length > 0;
+  bar.classList.toggle("show", show);
+  document.body.classList.toggle("has-cmp", show);
+  document.getElementById("cmpGo").disabled = compareList.length < 2;
+
+  clearTimeout(cmpWarnTimer);
+  if (warn) {
+    text.textContent = warn;
+    text.classList.add("warn");
+    cmpWarnTimer = setTimeout(() => renderCompareBar(), 2200);
+    return;
+  }
+  text.classList.remove("warn");
+  text.textContent = compareList.length < 2
+    ? `已選 ${compareList.length} / ${COMPARE_MAX} · 再選一支即可比較`
+    : `已選 ${compareList.length} / ${COMPARE_MAX} · ${compareList.join("、")}`;
+}
+
+function openCompare() {
+  if (compareList.length < 2) return;
+  renderCompareView();
+  document.getElementById("cmpOverlay").classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+
+function closeCompare() {
+  document.getElementById("cmpOverlay").classList.remove("open");
+  document.body.style.overflow = "";
+}
+
+function removeFromCompare(i) {
+  compareList.splice(i, 1);
+  renderList();
+  if (!compareList.length) closeCompare();
+  else renderCompareView();
+}
+
+function bandLine(b) {
+  const bw = [b.Horizontal_BW_deg, b.Vertical_BW_deg].map(v => v ? `${esc(v)}°` : "—").join("/");
+  return `<div class="cmp-line"><span class="f">${esc(b.SubBand_Low_MHz)}–${esc(b.SubBand_High_MHz)}</span>
+    <span class="g">${b.Gain_dBi ? `${esc(b.Gain_dBi)}dBi` : "—"}</span> <span class="bw">${bw}</span></div>`;
+}
+
+// 各欄取最大（或最小）數值，標示為最佳
+function bestIdx(vals, pick) {
+  const nums = vals.map(v => (typeof v === "number" && !isNaN(v)) ? v : null);
+  const valid = nums.filter(v => v !== null);
+  if (valid.length < 2) return new Set();
+  const target = pick(...valid);
+  if (valid.every(v => v === target)) return new Set();
+  return new Set(nums.map((v, i) => v === target ? i : -1).filter(i => i >= 0));
+}
+
+function renderCompareView() {
+  const ants = compareList.map(n => masterData.find(a => a.Antenna_Name === n)).filter(Boolean);
+  const bandsOf = ants.map(a => bandData.filter(b => b.Antenna_Name === a.Antenna_Name));
+  const cols = ants.length;
+  const sec = title => `<tr class="sec"><td colspan="${cols + 1}"><span>${title}</span></td></tr>`;
+  const row = (label, cells, best = new Set()) =>
+    `<tr><th class="rowh">${label}</th>${cells.map((c, i) =>
+      `<td class="${best.has(i) ? "cmp-best" : ""}">${c}</td>`).join("")}</tr>`;
+  const val = v => v ? `<span class="cmp-val">${esc(v)}</span>` : `<span class="cmp-none">—</span>`;
+
+  let h = `<thead><tr><th class="rowh">天線</th>${ants.map((a, i) => `
+    <th>
+      <div class="cmp-ant-name">${esc(a.Antenna_Name)}</div>
+      <div class="cmp-ant-mfr">${esc(a.Manufacturer || "—")}</div>
+      <button class="cmp-rm" onclick="removeFromCompare(${i})">✕ 移除</button>
+    </th>`).join("")}</tr></thead><tbody>`;
+
+  // 一般規格
+  h += sec("一般規格");
+  h += row("PORT", ants.map(a => val(a.Port_Count)));
+  h += row("重量 kg", ants.map(a => val(a.Weight_kg)),
+    bestIdx(ants.map(a => parseFloat(a.Weight_kg)), Math.min));
+  h += row("尺寸 mm", ants.map(a => val([a.Length_mm, a.Width_mm, a.Depth_mm].filter(Boolean).join(" × "))));
+  h += row("連接器", ants.map(a => val(a.Connector_Type)));
+  h += row("安裝", ants.map(a => val(a.Mounting_Type)));
+
+  // 中華電信頻段：同頻點比較，增益最高者標示
+  h += sec("中華電信頻段 · 頻段 / 增益 / H°/V°");
+  Object.values(CHT_BANDS).forEach(r => {
+    const hits = bandsOf.map(bs => bs.filter(b => bandRowMatchesCht(b, r)));
+    const maxGain = hits.map(bs => {
+      const g = bs.map(b => parseFloat(b.Gain_dBi)).filter(v => !isNaN(v));
+      return g.length ? Math.max(...g) : NaN;
+    });
+    h += row(`${r.label}<br>${r.lo}–${r.hi}`,
+      hits.map(bs => bs.length ? bs.map(bandLine).join("") : `<span class="cmp-none">未涵蓋</span>`),
+      bestIdx(maxGain, Math.max));
+  });
+
+  // 全部頻段（依 Band_ID 分列）
+  const order = { LB: 0, MB: 1, HB: 2 };
+  const ids = [...new Set(bandsOf.flat().map(b => b.Band_ID || "—"))]
+    .sort((x, y) => order[bandGroup(x)] - order[bandGroup(y)] || x.localeCompare(y));
+  if (ids.length) {
+    h += sec("全部頻段 · 頻段 / 增益 / H°/V°");
+    ids.forEach(id => {
+      h += row(`<span class="band-pill band-${bandGroup(id)}">${esc(id)}</span>`,
+        bandsOf.map(bs => {
+          const m = bs.filter(b => (b.Band_ID || "—") === id);
+          return m.length ? m.map(bandLine).join("") : `<span class="cmp-none">—</span>`;
+        }));
+    });
+  }
+  h += `</tbody>`;
+
+  document.getElementById("cmpTitle").textContent = `天線比較（${ants.length}）`;
+  document.getElementById("cmpBody").innerHTML = `
+    <div class="cmp-note">底色標示：同一中華電信頻段增益最高、重量最輕。左右滑動看更多欄位。</div>
+    <table class="cmp-table">${h}</table>`;
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") closeCompare();
+});
+
+function toggleCard(card) {
+  const panel = card.querySelector(".detail-panel");
   const isOpen = card.classList.contains("active");
 
   // Close all
@@ -1170,7 +1501,7 @@ function toggleCard(id) {
   if (!isOpen) {
     card.classList.add("active");
     panel.classList.add("open");
-    openCardId = id;
+    openCardId = card.dataset.name;
     // Smooth scroll to card
     setTimeout(() => card.scrollIntoView({ behavior: "smooth", block: "nearest" }), 50);
   } else {
@@ -1271,6 +1602,11 @@ function dismissBanner() {
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
+
+document.getElementById("filterRow").addEventListener("click", e => {
+  const chip = e.target.closest(".filter-chip");
+  if (chip) setFilter(chip.dataset.filter, chip);
+});
 
 if (SHEET_ID === "YOUR_GOOGLE_SHEET_ID_HERE") {
   document.getElementById("listContainer").innerHTML = `

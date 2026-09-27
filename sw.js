@@ -3,7 +3,7 @@
 // ║  離線快取 + 背景更新策略                      ║
 // ╚══════════════════════════════════════════════╝
 
-const CACHE_NAME = 'antenna-db-v4';
+const CACHE_NAME = 'antenna-db-v5';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes for Google Sheets data
 
 // 靜態資源（永久快取，版本更新時自動替換）
@@ -56,9 +56,11 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 本地靜態檔案 → Cache First
+  // 本地頁面與程式（HTML / JS / JSON）→ Network First
+  // 更新 index.html 後手機下次開啟即可取得新版，離線時才用快取
   if (url.origin === self.location.origin) {
-    event.respondWith(cacheFirst(event.request));
+    const isPage = event.request.mode === 'navigate' || /\.(html|js|json)$/.test(url.pathname);
+    event.respondWith(isPage ? networkFirstWithFallback(event.request) : cacheFirst(event.request));
     return;
   }
 
@@ -68,7 +70,7 @@ self.addEventListener('fetch', event => {
 
 // ── 策略函式 ──
 
-// Network First：優先網路，失敗則回傳快取（適合資料）
+// Network First：優先網路，失敗則回傳快取（適合資料與頁面）
 async function networkFirstWithFallback(request) {
   const cache = await caches.open(CACHE_NAME);
   try {
@@ -78,7 +80,8 @@ async function networkFirstWithFallback(request) {
     }
     return response;
   } catch {
-    const cached = await cache.match(request);
+    const cached = await cache.match(request) ||
+      (request.mode === 'navigate' ? await cache.match('./index.html') : undefined);
     if (cached) {
       console.log('[SW] Offline fallback for:', request.url);
       return cached;
