@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="theme-color" content="#0a0f14">
+<meta name="theme-color" content="#EAE5DF">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Antenna DB">
 <meta name="application-name" content="Antenna DB">
 <meta name="description" content="天線規格查詢工具 — 快速查閱多頻段天線參數">
@@ -23,23 +23,35 @@
 </script>
 
 <style>
+  /* ── 莫蘭迪色系 Morandi palette ── */
   :root {
-    --bg: #0a0f14;
-    --bg2: #0f1620;
-    --bg3: #141e2a;
-    --border: #1e2d3d;
-    --border2: #243447;
-    --text: #c8d8e8;
-    --text2: #7a8fa0;
-    --text3: #3a5060;
-    --accent: #e8820a;
-    --accent2: #f5a030;
-    --green: #2ecc71;
-    --red: #e74c3c;
-    --blue: #3d9de8;
-    --lb-color: #3d9de8;
-    --mb-color: #9b59b6;
-    --hb-color: #e8820a;
+    --bg: #EAE5DF;        /* 燕麥灰 */
+    --bg2: #F5F2ED;       /* 奶霜白 */
+    --bg3: #E3DDD5;       /* 亞麻灰 */
+    --border: #D8D0C6;
+    --border2: #CFC6BB;
+    --heading: #3B3733;   /* 深可可灰 */
+    --text: #4B4640;
+    --text2: #776E65;
+    --text3: #958B80;
+    --accent: #A6765F;    /* 豆沙陶土 */
+    --accent2: #9A6B55;
+    --accent-tint: rgba(166,118,95,0.12);
+    --green: #6E8A6C;     /* 灰綠 */
+    --red: #A8625C;       /* 豆沙紅 */
+    --blue: #6A849C;      /* 霧藍 */
+    --blue-tint: rgba(106,132,156,0.14);
+    --lb-color: #6A849C;  /* LB 霧藍 */
+    --mb-color: #8A7B9B;  /* MB 灰紫 */
+    --hb-color: #A6765F;  /* HB 豆沙 */
+    --lb-tint: rgba(106,132,156,0.15);
+    --mb-tint: rgba(138,123,155,0.15);
+    --hb-tint: rgba(166,118,95,0.15);
+    --sky-top: #DCE2E4;   /* 模擬圖天空 */
+    --sky-bot: #EEEAE3;
+    --soil: #C2B29F;      /* 模擬圖地面 */
+    --grass: #A3AE95;
+    --tower: #8E857B;
     --radius: 10px;
     --font-mono: 'DM Mono', 'Courier New', monospace;
     --font-body: 'Barlow', sans-serif;
@@ -72,7 +84,7 @@
     display: flex; align-items: center; justify-content: center;
     font-size: 18px; flex-shrink: 0;
   }
-  .header-title { font-family: var(--font-cond); font-size: 18px; font-weight: 700; color: #fff; letter-spacing: 0.06em; }
+  .header-title { font-family: var(--font-cond); font-size: 18px; font-weight: 700; color: var(--heading); letter-spacing: 0.06em; }
   .header-sub { font-family: var(--font-mono); font-size: 9px; color: var(--text3); letter-spacing: 0.12em; }
   .data-status { margin-left: auto; font-family: var(--font-mono); font-size: 10px; color: var(--text3); }
   .data-status.ok { color: var(--green); }
@@ -127,7 +139,7 @@
   .card-info { flex: 1; min-width: 0; }
   .card-name {
     font-family: var(--font-cond); font-size: 17px; font-weight: 700;
-    color: #fff; letter-spacing: 0.04em;
+    color: var(--heading); letter-spacing: 0.04em;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .card-mfr { font-size: 12px; color: var(--text2); margin-top: 1px; }
@@ -136,9 +148,9 @@
     font-family: var(--font-mono); font-size: 9px; font-weight: 500;
     padding: 2px 7px; border-radius: 3px; letter-spacing: 0.06em;
   }
-  .tag-port { background: rgba(61,157,232,0.15); color: var(--blue); border: 1px solid rgba(61,157,232,0.25); }
-  .tag-weight { background: rgba(200,216,232,0.08); color: var(--text2); border: 1px solid var(--border); }
-  .tag-dim { background: rgba(200,216,232,0.08); color: var(--text2); border: 1px solid var(--border); }
+  .tag-port { background: var(--blue-tint); color: var(--blue); border: 1px solid rgba(106,132,156,0.3); }
+  .tag-weight { background: rgba(75,70,64,0.05); color: var(--text2); border: 1px solid var(--border); }
+  .tag-dim { background: rgba(75,70,64,0.05); color: var(--text2); border: 1px solid var(--border); }
 
   .chevron {
     color: var(--text3); font-size: 14px; transition: transform 0.25s;
@@ -198,7 +210,7 @@
     font-family: var(--font-mono); font-size: 11px;
   }
   .band-table tr:last-child td { border-bottom: none; }
-  .band-table tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+  .band-table tr:nth-child(even) td { background: rgba(75,70,64,0.025); }
 
   /* Band ID pill */
   .band-pill {
@@ -206,17 +218,17 @@
     font-size: 9px; font-weight: 600; letter-spacing: 0.08em;
     white-space: nowrap;
   }
-  .band-LB { background: rgba(61,157,232,0.2); color: var(--lb-color); border: 1px solid rgba(61,157,232,0.3); }
-  .band-MB { background: rgba(155,89,182,0.2); color: var(--mb-color); border: 1px solid rgba(155,89,182,0.3); }
-  .band-HB, .band-HB_Y1, .band-HB_Y2 { background: rgba(232,130,10,0.2); color: var(--accent2); border: 1px solid rgba(232,130,10,0.3); }
+  .band-LB { background: var(--lb-tint); color: var(--lb-color); border: 1px solid rgba(106,132,156,0.35); }
+  .band-MB { background: var(--mb-tint); color: var(--mb-color); border: 1px solid rgba(138,123,155,0.35); }
+  .band-HB, .band-HB_Y1, .band-HB_Y2 { background: var(--hb-tint); color: var(--accent2); border: 1px solid rgba(166,118,95,0.35); }
 
-  .freq-range { color: #fff; font-weight: 500; white-space: nowrap; }
+  .freq-range { color: var(--heading); font-weight: 500; white-space: nowrap; }
   .gain-val { color: var(--accent2); }
   .bw-val { color: var(--blue); }
 
   /* Notes section */
   .notes-box {
-    background: rgba(232,130,10,0.06); border: 1px solid rgba(232,130,10,0.2);
+    background: var(--accent-tint); border: 1px solid rgba(166,118,95,0.25);
     border-radius: 8px; padding: 10px 12px; margin-top: 12px;
   }
   .notes-box .spec-label { color: var(--accent); }
@@ -294,7 +306,7 @@
     max-height: 0; overflow: hidden;
     transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
   }
-  .calc-panel.open { max-height: 1200px; }
+  .calc-panel.open { max-height: 3000px; }
   .calc-inner {
     background: var(--bg2); border: 1px solid var(--border);
     border-top: none; border-radius: 0 0 var(--radius) var(--radius);
@@ -316,10 +328,10 @@
   }
   .calc-input:focus, .calc-select:focus { border-color: var(--blue); }
   .calc-select { appearance: none; -webkit-appearance: none; cursor: pointer;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%233a5060'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23958B80'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
   }
-  .calc-select option { background: #0f1620; }
+  .calc-select option { background: var(--bg2); color: var(--text); }
 
   .calc-btn {
     width: 100%; margin-top: 10px; padding: 10px;
@@ -349,12 +361,44 @@
     vertical-align: middle;
   }
   .calc-table tr:last-child td { border-bottom: none; }
-  .calc-table tr:nth-child(even) td { background: rgba(255,255,255,0.015); }
+  .calc-table tr:nth-child(even) td { background: rgba(75,70,64,0.025); }
   .calc-near { color: var(--green); font-weight: 600; }
   .calc-far  { color: var(--accent2); font-weight: 600; }
   .calc-inf  { color: var(--text3); }
   .calc-warn { color: var(--red); font-size: 10px; margin-top: 8px;
     font-family: var(--font-mono); letter-spacing: 0.06em; }
+  .calc-table tbody tr { cursor: pointer; transition: background 0.15s; }
+  .calc-table tbody tr.sel td { background: var(--accent-tint) !important; }
+  .calc-table tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
+  /* ── COVERAGE SIMULATION ── */
+  .sim-wrap { margin-bottom: 14px; }
+  .sim-bands { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 8px; }
+  .sim-bands::-webkit-scrollbar { display: none; }
+  .sim-chip {
+    flex-shrink: 0; padding: 5px 10px; border-radius: 16px; cursor: pointer;
+    border: 1px solid var(--border2); background: var(--bg3); color: var(--text2);
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.04em;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .sim-chip b { font-weight: 600; margin-right: 4px; }
+  .sim-chip.sel { color: #fff; }
+  .sim-chip.sel.c-LB { background: var(--lb-color); border-color: var(--lb-color); }
+  .sim-chip.sel.c-MB { background: var(--mb-color); border-color: var(--mb-color); }
+  .sim-chip.sel.c-HB { background: var(--hb-color); border-color: var(--hb-color); }
+  .sim-svg-box {
+    border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+    max-width: 540px;
+    background: var(--sky-bot);
+  }
+  .sim-svg-box svg { display: block; width: 100%; height: auto; }
+  .sim-svg-box text { font-family: var(--font-mono); }
+  .sim-caption {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-top: 6px;
+    font-family: var(--font-mono); font-size: 10px; color: var(--text2);
+  }
+  .sim-caption span b { color: var(--heading); font-weight: 500; }
+  .sim-note { font-family: var(--font-mono); font-size: 9px; color: var(--text3); margin-top: 4px; line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -614,6 +658,7 @@ function switchFilterGroup(group, el) {
   else if (group === "port") buildPortFilters();
   else buildChtBandFilters();
   renderList();
+  calcCoverage();
 }
 
 function setFilter(val, el) {
@@ -622,6 +667,7 @@ function setFilter(val, el) {
   el.classList.add("active");
   openCardId = null;
   renderList();
+  calcCoverage();
 }
 
 // ═══════════════════════════════════════════════
@@ -815,6 +861,36 @@ function buildCalcSelect() {
   calcCoverage();
 }
 
+// 模擬圖用色（與 CSS :root 莫蘭迪色票一致）
+const SIM_C = {
+  LB: "#6A849C", MB: "#8A7B9B", HB: "#A6765F",
+  heading: "#3B3733", text2: "#776E65", text3: "#958B80",
+  skyTop: "#DCE2E4", skyBot: "#EEEAE3", soil: "#C2B29F", soil2: "#D6CABB",
+  grass: "#A3AE95", tower: "#8E857B", near: "#6E8A6C", far: "#A6765F", halo: "#F1EEE8"
+};
+
+let calcSelIdx = 0;
+let calcLastAnt = null;
+
+function bandGroup(id) {
+  if (!id) return "HB";
+  if (id.startsWith("LB")) return "LB";
+  if (id.startsWith("MB")) return "MB";
+  return "HB";
+}
+
+function fmtM(m) {
+  if (!isFinite(m) || m < 0) return "∞";
+  return m >= 1000 ? `${(m / 1000).toFixed(2)} km` : `${Math.round(m)} m`;
+}
+
+function selectCalcBand(i) {
+  calcSelIdx = i;
+  calcCoverage();
+  const chip = document.querySelector(`.sim-chip[data-i="${i}"]`);
+  if (chip) chip.scrollIntoView({ inline: "nearest", block: "nearest" });
+}
+
 function calcCoverage() {
   const resultEl = document.getElementById("calcResult");
   const antennaName = document.getElementById("calcAntenna").value;
@@ -836,42 +912,62 @@ function calcCoverage() {
   if (chtRange) {
     bands = bands.filter(b => bandRowMatchesCht(b, chtRange));
   }
-  if (!bands.length) {
+
+  const toRad = deg => deg * Math.PI / 180;
+  const data = bands.map(b => {
+    const vbw = parseFloat(b.Vertical_BW_deg);
+    if (isNaN(vbw)) return null;
+    const aFar = tilt - vbw / 2, aNear = tilt + vbw / 2;
+    return {
+      b, vbw, aFar, aNear,
+      near: aNear > 0 ? heightDiff / Math.tan(toRad(aNear)) : Infinity,
+      far:  aFar  > 0 ? heightDiff / Math.tan(toRad(aFar))  : Infinity,
+      main: tilt  > 0 ? heightDiff / Math.tan(toRad(tilt))  : Infinity,
+      grp: bandGroup(b.Band_ID)
+    };
+  }).filter(Boolean);
+
+  if (!data.length) {
     resultEl.innerHTML = `<div class="calc-warn">此天線無垂直角度 (VBW) 資料</div>`;
     return;
   }
 
-  const toRad = deg => deg * Math.PI / 180;
-  const fmtDist = m => {
-    if (!isFinite(m) || m < 0) return '<span class="calc-inf">∞</span>';
-    if (m >= 1000) return `<span class="calc-far">${(m/1000).toFixed(2)} km</span>`;
-    return `<span class="calc-far">${Math.round(m)} m</span>`;
-  };
+  if (antennaName !== calcLastAnt) { calcLastAnt = antennaName; calcSelIdx = 0; }
+  if (calcSelIdx >= data.length) calcSelIdx = 0;
+  const sel = data[calcSelIdx];
 
-  const rows = bands.map(b => {
-    const vbw  = parseFloat(b.Vertical_BW_deg);
-    if (isNaN(vbw)) return null;
+  const chips = data.map((d, i) => `
+    <div class="sim-chip c-${d.grp}${i === calcSelIdx ? " sel" : ""}" data-i="${i}" onclick="selectCalcBand(${i})">
+      <b>${d.b.Band_ID || "—"}</b>${d.b.SubBand_Low_MHz || "?"}–${d.b.SubBand_High_MHz || "?"}
+    </div>`).join("");
 
-    const angleFar  = tilt - vbw / 2;   // 遠端角度
-    const angleNear = tilt + vbw / 2;   // 近端角度
+  const sb = sel.b;
+  const caption = [
+    ["頻段", `${sb.SubBand_Low_MHz || "?"}–${sb.SubBand_High_MHz || "?"} MHz`],
+    ["增益", sb.Gain_dBi ? `${sb.Gain_dBi} dBi` : "—"],
+    ["H-BW", sb.Horizontal_BW_deg ? `${sb.Horizontal_BW_deg}°` : "—"],
+    ["V-BW", `${sel.vbw}°`],
+    ["電下傾", sb.Electrical_Tilt_Range_deg || "—"],
+    ["主瓣落點", fmtM(sel.main)],
+  ].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join("");
 
-    const near = angleNear > 0 ? heightDiff / Math.tan(toRad(angleNear)) : Infinity;
-    const far  = angleFar  > 0 ? heightDiff / Math.tan(toRad(angleFar))  : Infinity;
-
-    const nearFmt = near < 0 || !isFinite(near) ? '<span class="calc-inf">∞</span>'
-      : near >= 1000 ? `<span class="calc-near">${(near/1000).toFixed(2)} km</span>`
-      : `<span class="calc-near">${Math.round(near)} m</span>`;
-
-    return `<tr>
-      <td><span class="band-pill ${getBandClassCalc(b.Band_ID)}">${b.Band_ID || "—"}</span></td>
-      <td>${b.SubBand_Low_MHz || "—"}–${b.SubBand_High_MHz || "—"} MHz</td>
-      <td style="color:var(--blue)">${vbw}°</td>
-      <td>${nearFmt}</td>
-      <td>${fmtDist(far)}</td>
-    </tr>`;
-  }).filter(Boolean).join("");
+  const rows = data.map((d, i) => `<tr class="${i === calcSelIdx ? "sel" : ""}" onclick="selectCalcBand(${i})">
+      <td><span class="band-pill band-${d.grp}">${d.b.Band_ID || "—"}</span></td>
+      <td>${d.b.SubBand_Low_MHz || "—"}–${d.b.SubBand_High_MHz || "—"} MHz</td>
+      <td style="color:var(--blue)">${d.vbw}°</td>
+      <td>${isFinite(d.near) ? `<span class="calc-near">${fmtM(d.near)}</span>` : '<span class="calc-inf">∞</span>'}</td>
+      <td>${isFinite(d.far) ? `<span class="calc-far">${fmtM(d.far)}</span>` : '<span class="calc-inf">∞</span>'}</td>
+    </tr>`).join("");
 
   resultEl.innerHTML = `
+    <div class="calc-result-label">涵蓋模擬圖</div>
+    <div class="sim-wrap">
+      <div class="sim-bands">${chips}</div>
+      <div class="sim-svg-box">${renderCoverageSim(sel, antH, userH, tilt)}</div>
+      <div class="sim-caption">${caption}</div>
+      <div class="sim-note">示意圖：垂直方向已放大以便辨識，圖上角度為示意；距離標示為實際計算值。</div>
+      ${!isFinite(sel.far) ? `<div class="calc-warn">⚠ 波束上緣 (θ−VBW/2 = ${sel.aFar.toFixed(1)}°) 未低於水平線，遠端不會落地，建議加大下傾角</div>` : ""}
+    </div>
     <div class="calc-result-label">涵蓋範圍結果</div>
     <div style="overflow-x:auto;margin:0 -14px;padding:0 14px 4px">
     <table class="calc-table" style="min-width:420px">
@@ -889,11 +985,175 @@ function calcCoverage() {
     </div>`;
 }
 
+// 產生涵蓋模擬 SVG（類似 Transmitter / Receiver 側視示意圖）
+function renderCoverageSim(d, antH, userH, tilt) {
+  const W = 360, H = 238;
+  const x0 = 60, xR = 350, yTop = 38, yG = 188, yMin = 8;
+  const ax = x0 + 3;                         // 天線位置
+  const bandCol = SIM_C[d.grp];
+  const dh = antH - userH;
+
+  const ys = (yG - yTop) / antH;             // 垂直 px/m
+  const yUser = userH > 0 ? Math.min(yG - userH * ys, yG - 5) : yG;
+  const kY = (yUser - yTop) / dh;            // 天線→用戶平面 px/m
+
+  // 水平比例尺
+  let xMax;
+  if (isFinite(d.far)) xMax = d.far * 1.12;
+  else if (isFinite(d.main)) xMax = Math.max(d.main * 2.2, d.near * 3);
+  else if (isFinite(d.near)) xMax = d.near * 5;
+  else xMax = 1000;
+  const xs = (xR - ax) / xMax;
+  const px = m => ax + m * xs;
+  const rad = deg => deg * Math.PI / 180;
+
+  // 射線終點：落在用戶平面，或延伸至圖框邊緣
+  const ray = (angDeg, dist) => {
+    if (angDeg > 0 && dist <= xMax) return { x: px(dist), y: yUser, hit: true };
+    if (angDeg <= 0) {
+      // 仰角射線不落地：以示意斜率畫到右緣（避免垂直放大後過陡）
+      const up = angDeg === 0 ? 0 : Math.min(yTop - yMin, 5 + (-angDeg) * 4);
+      return { x: xR, y: yTop - up, hit: false };
+    }
+    const slope = Math.tan(rad(angDeg)) * kY / xs;   // 每 px 水平的垂直 px
+    return { x: xR, y: Math.min(yTop + slope * (xR - ax), yUser), hit: false };
+  };
+  const pFar = ray(d.aFar, d.far), pNear = ray(d.aNear, d.near), pMain = ray(tilt, d.main);
+  const drawAng = p => Math.atan2(p.y - yTop, p.x - ax);   // 圖上角度 (rad)
+
+  const t = (x, y, s, o = {}) =>
+    `<text x="${x.toFixed(1)}" y="${y.toFixed(1)}" font-size="${o.size || 9.5}" fill="${o.fill || SIM_C.text2}"
+      text-anchor="${o.anchor || "start"}" font-weight="${o.weight || 400}"
+      stroke="${SIM_C.halo}" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${s}</text>`;
+  const line = (x1, y1, x2, y2, col, w = 1, dash = "") =>
+    `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
+      stroke="${col}" stroke-width="${w}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+  const arc = (r, a1, a2, col, w = 1.2) => {
+    const x1 = ax + r * Math.cos(a1), y1 = yTop + r * Math.sin(a1);
+    const x2 = ax + r * Math.cos(a2), y2 = yTop + r * Math.sin(a2);
+    return `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0 1 ${x2.toFixed(1)},${y2.toFixed(1)}"
+      fill="none" stroke="${col}" stroke-width="${w}" marker-end="url(#simArrowS)"/>`;
+  };
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
+    aria-label="天線涵蓋模擬圖：${d.b.Band_ID || ""} 近端 ${fmtM(d.near)}，遠端 ${fmtM(d.far)}">
+  <defs>
+    <linearGradient id="simSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="${SIM_C.skyTop}"/><stop offset="1" stop-color="${SIM_C.skyBot}"/>
+    </linearGradient>
+    <marker id="simArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 z" fill="${SIM_C.text2}"/></marker>
+    <marker id="simArrowS" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,0 L8,4 L0,8 z" fill="${SIM_C.text2}"/></marker>
+  </defs>
+  <rect x="0" y="0" width="${W}" height="${yG}" fill="url(#simSky)"/>
+  <rect x="0" y="${yG}" width="${W}" height="${H - yG}" fill="${SIM_C.soil2}"/>
+  <rect x="0" y="${yG}" width="${W}" height="4" fill="${SIM_C.soil}"/>
+  <rect x="0" y="${yG - 1.5}" width="${W}" height="2" fill="${SIM_C.grass}"/>`;
+
+  // 水平線 0°
+  s += line(ax, yTop, xR, yTop, SIM_C.text3, 1, "4 3");
+  s += t(xR - 2, yTop - 5, "0° 水平", { anchor: "end", fill: SIM_C.text3 });
+
+  // 用戶高度平面
+  if (userH > 0) {
+    s += line(x0 + 14, yUser, xR, yUser, SIM_C.text3, 0.8, "2 3");
+  }
+
+  // 波束填色區
+  const pts = [[ax, yTop], [pFar.x, pFar.y]];
+  if (!pFar.hit && pNear.hit) pts.push([xR, yUser]);
+  pts.push([pNear.x, pNear.y]);
+  s += `<polygon points="${pts.map(p => p.map(v => v.toFixed(1)).join(",")).join(" ")}"
+    fill="${bandCol}" fill-opacity="0.2"/>`;
+
+  // 波束上下緣 + 主瓣
+  s += line(ax, yTop, pFar.x, pFar.y, bandCol, 1.4);
+  s += line(ax, yTop, pNear.x, pNear.y, bandCol, 1.4);
+  s += line(ax, yTop, pMain.x, pMain.y, SIM_C.heading, 1.5, "5 3");
+
+  // 角度弧：下傾角 / 波束寬
+  const aMain = drawAng(pMain), aF = drawAng(pFar), aN = drawAng(pNear);
+  if (tilt !== 0) {
+    s += arc(44, 0, aMain, SIM_C.heading, 1);
+    s += t(ax + 48 * Math.cos(aMain / 2) + 4, yTop + 48 * Math.sin(aMain / 2) + 3,
+      `下傾 ${tilt}°`, { fill: SIM_C.heading, weight: 600 });
+  }
+  s += arc(82, aF, aN, bandCol, 1.2);
+  const aMid = (aF + aN) / 2;
+  s += t(ax + 88 * Math.cos(aMid) + 3, yTop + 88 * Math.sin(aMid) + 10,
+    `VBW ${d.vbw}°`, { fill: bandCol, weight: 600 });
+
+  // 鐵塔
+  const legTop = yTop + 5, legL = x0 - 12, legR = x0 + 12;
+  s += `<g stroke="${SIM_C.tower}" stroke-width="1.6" fill="none" stroke-linecap="round">
+    <line x1="${legL}" y1="${yG}" x2="${x0 - 2}" y2="${legTop}"/>
+    <line x1="${legR}" y1="${yG}" x2="${x0 + 2}" y2="${legTop}"/>`;
+  const seg = 6;
+  for (let i = 0; i < seg; i++) {
+    const f1 = i / seg, f2 = (i + 1) / seg;
+    const yA = yG - (yG - legTop) * f1, yB = yG - (yG - legTop) * f2;
+    const lA = legL + (x0 - 2 - legL) * f1, rA = legR + (x0 + 2 - legR) * f1;
+    const lB = legL + (x0 - 2 - legL) * f2, rB = legR + (x0 + 2 - legR) * f2;
+    s += `<line x1="${lA.toFixed(1)}" y1="${yA.toFixed(1)}" x2="${rB.toFixed(1)}" y2="${yB.toFixed(1)}" stroke-width="0.9"/>
+      <line x1="${rA.toFixed(1)}" y1="${yA.toFixed(1)}" x2="${lB.toFixed(1)}" y2="${yB.toFixed(1)}" stroke-width="0.9"/>
+      <line x1="${lB.toFixed(1)}" y1="${yB.toFixed(1)}" x2="${rB.toFixed(1)}" y2="${yB.toFixed(1)}" stroke-width="0.9"/>`;
+  }
+  s += `</g>
+  <rect x="${x0 - 16}" y="${yG - 3}" width="32" height="5" rx="1.5" fill="${SIM_C.tower}"/>
+  <line x1="${x0}" y1="${legTop}" x2="${x0}" y2="${yTop - 10}" stroke="${SIM_C.tower}" stroke-width="1.6"/>
+  <g transform="rotate(${Math.max(-20, Math.min(20, tilt))} ${ax + 4} ${yTop})">
+    <rect x="${ax + 1.5}" y="${yTop - 11}" width="5.5" height="22" rx="1.5" fill="${SIM_C.heading}"/>
+  </g>
+  <circle cx="${x0}" cy="${yTop - 11}" r="2.2" fill="${SIM_C.heading}"/>`;
+  s += t(x0, yTop - 18, "天線", { anchor: "middle", fill: SIM_C.heading, weight: 600 });
+
+  // Ht 標註
+  s += line(14, yTop, x0 - 18, yTop, SIM_C.text3, 0.8);
+  s += `<line x1="24" y1="${yTop + 1}" x2="24" y2="${yG - 1}" stroke="${SIM_C.text2}" stroke-width="1"
+    marker-start="url(#simArrow)" marker-end="url(#simArrow)"/>`;
+  const yMidH = (yTop + yG) / 2;
+  s += `<text x="10" y="${yMidH}" font-size="12" font-weight="600" fill="${SIM_C.heading}"
+    stroke="${SIM_C.halo}" stroke-width="3" paint-order="stroke">H<tspan font-size="8" dy="3">t</tspan></text>`;
+  s += t(6, yMidH + 16, `${antH}m`, { size: 8.5 });
+
+  // 接收端（主瓣落點）
+  if (pMain.hit) {
+    const xm = pMain.x;
+    s += line(xm, yG - 1, xm, yUser, SIM_C.heading, 1.6);
+    s += `<rect x="${(xm - 2.5).toFixed(1)}" y="${(yUser - 4).toFixed(1)}" width="5" height="8" rx="1" fill="${SIM_C.heading}"/>`;
+    s += t(xm, yUser - 9, `主瓣 ${fmtM(d.main)}`, { anchor: "middle", fill: SIM_C.heading, weight: 600 });
+    if (userH > 0) {
+      s += t(xm + 6, yG - 5, `Hr ${userH}m`, { size: 8.5, fill: SIM_C.text2 });
+    }
+  }
+
+  // 近端 / 遠端 半徑標註（地面下方）
+  const radius = (dist, y, label, col, pEnd) => {
+    const finite = isFinite(dist) && dist <= xMax;
+    const xEnd = finite ? px(dist) : xR;
+    let out = "";
+    if (finite) out += line(xEnd, pEnd.y, xEnd, y, col, 0.9, "2 2");
+    out += `<line x1="${ax}" y1="${y}" x2="${xEnd.toFixed(1)}" y2="${y}" stroke="${col}" stroke-width="1.3"
+      marker-start="url(#simArrow)"${finite ? ` marker-end="url(#simArrow)"` : ""}/>`;
+    const txt = `${label} ${finite ? fmtM(dist) : "∞"}`;
+    const wTxt = txt.length * 5.6 + 8;
+    let tx = (ax + xEnd) / 2;
+    if (xEnd - ax < wTxt + 10) tx = Math.min(xEnd + 6 + wTxt / 2, W - wTxt / 2 - 2);
+    out += `<rect x="${(tx - wTxt / 2).toFixed(1)}" y="${y - 7}" width="${wTxt.toFixed(1)}" height="13" rx="3"
+      fill="${SIM_C.soil2}"/>`;
+    out += `<text x="${tx.toFixed(1)}" y="${y + 3}" font-size="9.5" font-weight="600" fill="${col}" text-anchor="middle">${txt}</text>`;
+    return out;
+  };
+  s += radius(d.near, yG + 17, "近端", SIM_C.near, pNear);
+  s += radius(d.far, yG + 36, "遠端", SIM_C.far, pFar);
+
+  s += `</svg>`;
+  return s;
+}
+
 function getBandClassCalc(id) {
-  if (!id) return "";
-  if (id.startsWith("LB")) return "band-LB";
-  if (id.startsWith("MB")) return "band-MB";
-  return "band-HB";
+  return "band-" + bandGroup(id);
 }
 
 function toggleCard(id) {
@@ -946,20 +1206,20 @@ function showInstallBanner() {
   banner.id = 'pwa-banner';
   banner.innerHTML = `
     <div style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
-      background:#1a2a38;border:1px solid #e8820a;border-radius:12px;
+      background:#F5F2ED;border:1px solid #A6765F;border-radius:12px;
       padding:12px 16px;display:flex;align-items:center;gap:12px;
-      box-shadow:0 8px 32px rgba(0,0,0,0.6);z-index:9999;
+      box-shadow:0 8px 28px rgba(75,70,64,0.18);z-index:9999;
       font-family:'Barlow',sans-serif;max-width:320px;width:90%;
       animation:pwaSlide 0.4s cubic-bezier(0.34,1.56,0.64,1) both">
       <span style="font-size:24px">📡</span>
       <div style="flex:1">
-        <div style="font-size:13px;font-weight:600;color:#fff">安裝 Antenna DB</div>
-        <div style="font-size:11px;color:#7a8fa0;margin-top:1px">加入主畫面，隨時快速查閱</div>
+        <div style="font-size:13px;font-weight:600;color:#3B3733">安裝 Antenna DB</div>
+        <div style="font-size:11px;color:#776E65;margin-top:1px">加入主畫面，隨時快速查閱</div>
       </div>
-      <button onclick="installPWA()" style="background:#e8820a;border:none;border-radius:7px;
+      <button onclick="installPWA()" style="background:#A6765F;border:none;border-radius:7px;
         color:#fff;font-family:'Barlow',sans-serif;font-weight:600;
         font-size:12px;padding:7px 12px;cursor:pointer;white-space:nowrap">安裝</button>
-      <button onclick="dismissBanner()" style="background:none;border:none;color:#3a5060;cursor:pointer;font-size:20px;padding:0 2px;line-height:1">×</button>
+      <button onclick="dismissBanner()" style="background:none;border:none;color:#958B80;cursor:pointer;font-size:20px;padding:0 2px;line-height:1">×</button>
     </div>
     <style>@keyframes pwaSlide{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}</style>`;
   document.body.appendChild(banner);
@@ -988,20 +1248,20 @@ function dismissBanner() {
     hint.id = 'pwa-banner';
     hint.innerHTML = `
       <div style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
-        background:#1a2a38;border:1px solid #3d9de8;border-radius:12px;
+        background:#F5F2ED;border:1px solid #6A849C;border-radius:12px;
         padding:12px 16px;display:flex;align-items:flex-start;gap:12px;
-        box-shadow:0 8px 32px rgba(0,0,0,0.6);z-index:9999;
+        box-shadow:0 8px 28px rgba(75,70,64,0.18);z-index:9999;
         font-family:'Barlow',sans-serif;max-width:320px;width:90%;
         animation:pwaSlide 0.4s cubic-bezier(0.34,1.56,0.64,1) both">
         <span style="font-size:22px;margin-top:2px">📲</span>
         <div style="flex:1">
-          <div style="font-size:13px;font-weight:600;color:#fff">加入主畫面</div>
-          <div style="font-size:11px;color:#7a8fa0;margin-top:3px;line-height:1.6">
-            點底部 <strong style="color:#3d9de8">分享 ⬆</strong> 按鈕<br>選「<strong style="color:#3d9de8">加入主畫面</strong>」即完成安裝
+          <div style="font-size:13px;font-weight:600;color:#3B3733">加入主畫面</div>
+          <div style="font-size:11px;color:#776E65;margin-top:3px;line-height:1.6">
+            點底部 <strong style="color:#6A849C">分享 ⬆</strong> 按鈕<br>選「<strong style="color:#6A849C">加入主畫面</strong>」即完成安裝
           </div>
         </div>
         <button onclick="this.closest('#pwa-banner').remove();sessionStorage.setItem('ios_hint','1')"
-          style="background:none;border:none;color:#3a5060;cursor:pointer;font-size:20px;padding:0 2px;line-height:1;flex-shrink:0">×</button>
+          style="background:none;border:none;color:#958B80;cursor:pointer;font-size:20px;padding:0 2px;line-height:1;flex-shrink:0">×</button>
       </div>
       <style>@keyframes pwaSlide{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}</style>`;
     document.body.appendChild(hint);
@@ -1017,7 +1277,7 @@ if (SHEET_ID === "YOUR_GOOGLE_SHEET_ID_HERE") {
     <div class="state-box">
       <span class="icon">⚙️</span>
       尚未設定 Google Sheet ID<br>
-      <span style="font-size:10px;color:var(--text3)">請開啟 index.html，將第 14 行的 SHEET_ID 替換為您的 Sheet ID</span>
+      <span style="font-size:10px;color:var(--text3)">請開啟 index.html，將第 22 行的 SHEET_ID 替換為您的 Sheet ID</span>
     </div>`;
 } else {
   loadData();
