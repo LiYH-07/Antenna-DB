@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "tvremix-marketplace": {
+      "source": {
+        "source": "github",
+        "repo": "tvremix/claude-plugin"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "tvremix@tvremix-marketplace": true
+  }
+}
