@@ -683,12 +683,22 @@
         </div>
         <div class="calc-row" data-hr="bridge" style="display:none">
           <div class="calc-field">
-            <div class="calc-label">橋段起點距離 (m)</div>
-            <input class="calc-input" type="number" id="calcBrD0" value="200" min="1" step="10" oninput="calcCoverage()">
+            <div class="calc-label">橋中心距離 (m)</div>
+            <input class="calc-input" type="number" id="calcBrD" value="500" min="1" step="10" oninput="calcCoverage()">
           </div>
           <div class="calc-field">
-            <div class="calc-label">橋段終點距離 (m)</div>
-            <input class="calc-input" type="number" id="calcBrD1" value="800" min="1" step="10" oninput="calcCoverage()">
+            <div class="calc-label">橋長 (m)</div>
+            <input class="calc-input" type="number" id="calcBrLen" value="600" min="1" step="10" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row" data-hr="bridge" style="display:none">
+          <div class="calc-field">
+            <div class="calc-label">橋走向角 (°) — 0 沿天線方向、90 橫越</div>
+            <input class="calc-input" type="number" id="calcBrRot" value="0" min="-180" max="180" step="5" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">橋中心方位 (°) — 相對天線正前方，右正左負</div>
+            <input class="calc-input" type="number" id="calcBrAz" value="0" min="-180" max="180" step="5" oninput="calcCoverage()">
           </div>
         </div>
         <div class="calc-row" data-hr="bridge" style="display:none">
@@ -1639,6 +1649,7 @@ function fmtTilt(t) {
 const numVal = id => parseFloat(document.getElementById(id).value);
 
 // 讀取目標：p0 / p1 為 {x 水平距離, z 高度}；ground 為繪圖用地形折線
+// 高架橋另有 at(s)：沿橋位置 s (0~1) → {x 水平距離, z, az 方位角, px/py 俯視座標}
 function hrTarget() {
   if (hrType === "bld") {
     const D = numVal("calcBldDist"), Hb = numVal("calcBldHeight"), fh = numVal("calcFloorH");
@@ -1646,10 +1657,18 @@ function hrTarget() {
     return { p0: { x: D, z: 0 }, p1: { x: D, z: Hb }, fh: fh > 0 ? fh : NaN, ground: [[0, 0]] };
   }
   if (hrType === "bridge") {
-    const d0 = numVal("calcBrD0"), d1 = numVal("calcBrD1"), h = numVal("calcBrH");
-    const hu = numVal("calcBrUser") || 0;
-    if (!(d0 > 0) || !(d1 > d0) || isNaN(h)) return { err: "請輸入橋段起點、終點距離（終點需大於起點）與橋面高度" };
-    return { p0: { x: d0, z: h + hu }, p1: { x: d1, z: h + hu }, deck: h, ground: [[0, 0]] };
+    // 俯視座標：天線在原點，px = 天線正前方、py = 右方
+    const D = numVal("calcBrD"), len = numVal("calcBrLen"), h = numVal("calcBrH");
+    const rot = numVal("calcBrRot") || 0, az0 = numVal("calcBrAz") || 0, hu = numVal("calcBrUser") || 0;
+    if (!(D > 0) || !(len > 0) || isNaN(h)) return { err: "請輸入橋中心距離、橋長與橋面高度" };
+    const rad = a => a * Math.PI / 180, z = h + hu;
+    const cx = D * Math.cos(rad(az0)), cy = D * Math.sin(rad(az0));
+    const ux = Math.cos(rad(az0 + rot)), uy = Math.sin(rad(az0 + rot));
+    const at = s => {
+      const px = cx + (s - 0.5) * len * ux, py = cy + (s - 0.5) * len * uy;
+      return { x: Math.hypot(px, py), z, az: Math.atan2(py, px) * 180 / Math.PI, px, py };
+    };
+    return { at, p0: at(0), p1: at(1), deck: h, z, len, ground: [[0, 0]] };
   }
   const es = numVal("calcHillSite"), d0 = numVal("calcHillD0"), e0 = numVal("calcHillE0");
   const d1 = numVal("calcHillD1"), e1 = numVal("calcHillE1"), hu = numVal("calcHillUser") || 0;
@@ -1663,33 +1682,57 @@ function vAtt(off, vbw) {
   return Math.min(12 * (off / vbw) ** 2, 20);
 }
 
-function fmtAtt(off, att) {
+// 3GPP TR 36.814 水平場型近似：方位偏角 φ 的衰減，上限 25 dB
+function hAtt(off, hbw) {
+  return isNaN(hbw) ? 0 : Math.min(12 * (off / hbw) ** 2, 25);
+}
+
+// 水平 + 垂直合成衰減，上限 25 dB；−3 dB 以內視為涵蓋
+function totAtt(offH, offV, hbw, vbw) {
+  return Math.min(hAtt(offH, hbw) + vAtt(offV, vbw), 25);
+}
+
+function fmtAtt(off, att, offH) {
   const cls = att <= 3 ? "att-ok" : att <= 10 ? "att-mid" : "att-bad";
-  const dir = Math.abs(off) < 0.05 ? "" : off > 0 ? "下" : "上";
-  return `<span class="${cls}">−${att.toFixed(1)} dB</span><br><span class="hr-sub">偏${dir} ${Math.abs(off).toFixed(1)}°</span>`;
+  const v = Math.abs(off) < 0.05 ? "垂直 0°" : `偏${off > 0 ? "下" : "上"} ${Math.abs(off).toFixed(1)}°`;
+  const h = offH === undefined ? "" : Math.abs(offH) < 0.05 ? " · 水平 0°" : ` · 偏${offH > 0 ? "右" : "左"} ${Math.abs(offH).toFixed(1)}°`;
+  return `<span class="${cls}">−${att.toFixed(1)} dB</span><br><span class="hr-sub">${v}${h}</span>`;
 }
 
 function renderHighRise(base, chips, antH, tilt) {
   const T = hrTarget();
   if (T.err) return `<div class="calc-warn">${T.err}</div>`;
   const L = HR_LABELS[hrType];
+  const planar = hrType === "bridge";                         // 高架橋：計入水平方位
   const { p0, p1 } = T;
   const deg = r => r * 180 / Math.PI;
   const elev = p => deg(Math.atan2(antH - p.z, p.x));        // 天線看該點的俯角
-  const pt = s => ({ x: p0.x + s * (p1.x - p0.x), z: p0.z + s * (p1.z - p0.z) });
-  const a0 = elev(p0), a1 = elev(p1);
-  const span = Math.abs(a0 - a1), center = (a0 + a1) / 2;
+  const pt = T.at || (s => ({ x: p0.x + s * (p1.x - p0.x), z: p0.z + s * (p1.z - p0.z), az: 0 }));
 
-  // 目標線上被波束 (上緣 aFar ~ 下緣 aNear) 涵蓋的區段；俯角沿直線單調，取樣即可
+  // 沿目標線取樣：俯角 a、方位角 az
   const N = 400;
+  const samples = [];
+  for (let i = 0; i <= N; i++) { const q = pt(i / N); samples.push({ s: i / N, q, a: elev(q), az: q.az || 0 }); }
+  const as = samples.map(x => x.a), azs = samples.map(x => x.az);
+  const aMin = Math.min(...as), aMax = Math.max(...as);
+  const span = aMax - aMin, center = (aMin + aMax) / 2;
+  const azMin = Math.min(...azs), azMax = Math.max(...azs);
+  const hSpan = azMax - azMin, hCenter = (azMin + azMax) / 2;
+  const a0 = samples[0].a, a1 = samples[N].a;
+
   const data = base.map(d => {
-    let s0 = -1, s1 = -1;
-    for (let i = 0; i <= N; i++) {
-      const a = elev(pt(i / N));
-      if (a >= d.aFar && a <= d.aNear) { if (s0 < 0) s0 = i / N; s1 = i / N; }
-    }
-    const off0 = a0 - tilt, off1 = a1 - tilt;
-    return { ...d, hit: s1 > s0, s0, s1, off0, off1, att0: vAtt(off0, d.vbw), att1: vAtt(off1, d.vbw) };
+    const hbw = parseFloat(d.b.Horizontal_BW_deg);
+    const hb = planar && hbw > 0 ? hbw : NaN;
+    const att = x => totAtt(x.az, x.a - tilt, hb, d.vbw);
+    const cov = samples.map(x => att(x) <= 3);
+    const n = cov.filter(Boolean).length;
+    const s0 = cov.indexOf(true) / N, s1 = cov.lastIndexOf(true) / N;
+    // 沒涵蓋時，找衰減最小的點判斷偏在哪個方向
+    let best = samples[0];
+    samples.forEach(x => { if (att(x) < att(best)) best = x; });
+    const end = x => ({ offV: x.a - tilt, offH: planar ? x.az : undefined, att: att(x) });
+    return { ...d, hbw: hb, cov, n, hit: n > 1, s0, s1, frac: n / (N + 1), best,
+      bestH: hAtt(best.az, hb), bestV: vAtt(best.a - tilt, d.vbw), e0: end(samples[0]), e1: end(samples[N]) };
   });
   const sel = data[calcSelIdx];
 
@@ -1697,7 +1740,10 @@ function renderHighRise(base, chips, antH, tilt) {
   const nFloors = hrType === "bld" && T.fh ? Math.max(1, Math.round(p1.z / T.fh)) : Infinity;
   const coverText = d => {
     if (!d.hit) {
-      return Math.min(a0, a1) > d.aNear
+      if (planar && d.bestH > d.bestV) {
+        return `<span class="rev-warn">橋段在水平波束外</span><br><span class="hr-sub">需調整方位角</span>`;
+      }
+      return d.best.a > d.aNear
         ? `<span class="rev-warn">目標在波束下方</span><br><span class="hr-sub">需加大下傾</span>`
         : `<span class="rev-warn">目標在波束上方</span><br><span class="hr-sub">需減少下傾／上仰</span>`;
     }
@@ -1710,6 +1756,11 @@ function renderHighRise(base, chips, antH, tilt) {
       }
       return `${q0.z.toFixed(1)}–${q1.z.toFixed(1)} m${f}`;
     }
+    if (planar) {
+      const rs = samples.filter((x, i) => d.cov[i]).map(x => x.q.x);
+      return `距起點 ${fmtM(d.s0 * T.len)}–${fmtM(d.s1 * T.len)}<br>
+        <span class="hr-sub">距天線 ${fmtM(Math.min(...rs))}–${fmtM(Math.max(...rs))}</span>`;
+    }
     const dist = `${fmtM(q0.x)}–${fmtM(q1.x)}`;
     if (hrType === "hill") {
       const e = q => Math.round(q.z - T.hu + T.site);
@@ -1717,59 +1768,187 @@ function renderHighRise(base, chips, antH, tilt) {
     }
     return dist;
   };
-  const pct = d => d.hit ? `${Math.round((d.s1 - d.s0) * 100)}%` : "0%";
+  const pct = d => `${Math.round(d.frac * 100)}%`;
+  const enough = (bw, need, tag) => isNaN(bw) ? `<span class="calc-inf">${tag} 無資料</span>`
+    : bw >= need ? `<span class="calc-near">${tag} 足夠</span>` : `<span class="rev-warn">${tag} 差 ${(need - bw).toFixed(1)}°</span>`;
 
   const rows = data.map((d, i) => `<tr class="${i === calcSelIdx ? "sel" : ""}" onclick="selectCalcBand(${i})">
       <td><span class="band-pill band-${d.grp}">${esc(d.b.Band_ID || "—")}</span></td>
-      <td style="color:var(--blue)">${d.vbw}°</td>
+      <td style="color:var(--blue)">${d.vbw}°${planar ? `<br><span class="hr-sub">H ${isNaN(d.hbw) ? "—" : d.hbw + "°"}</span>` : ""}</td>
       <td>${coverText(d)}</td>
       <td>${pct(d)}</td>
-      <td>${fmtAtt(d.off0, d.att0)}</td>
-      <td>${fmtAtt(d.off1, d.att1)}</td>
-      <td>${d.vbw >= span ? '<span class="calc-near">VBW 足夠</span>'
-        : `<span class="rev-warn">差 ${(span - d.vbw).toFixed(1)}°</span>`}</td>
+      <td>${fmtAtt(d.e0.offV, d.e0.att, d.e0.offH)}</td>
+      <td>${fmtAtt(d.e1.offV, d.e1.att, d.e1.offH)}</td>
+      <td>${enough(d.vbw, span, "VBW")}${planar ? `<br>${enough(d.hbw, hSpan, "H-BW")}` : ""}</td>
     </tr>`).join("");
 
   const caption = [
     ["目標", L.name],
     ["V-BW", `${sel.vbw}°`],
+    ...(planar ? [["H-BW", isNaN(sel.hbw) ? "無資料" : `${sel.hbw}°`], ["橋面", `${T.deck} m`]] : []),
     ["涵蓋", pct(sel)],
-    [L.p0, `−${sel.att0.toFixed(1)} dB`],
-    [L.p1, `−${sel.att1.toFixed(1)} dB`],
+    [L.p0, `−${sel.e0.att.toFixed(1)} dB`],
+    [L.p1, `−${sel.e1.att.toFixed(1)} dB`],
   ].map(([k, v]) => `<span>${k} <b>${esc(v)}</b></span>`).join("");
 
   const revRow = (label, t) => `<div class="rev-main">
       <span>${label}：<b class="rev-tilt">${fmtTilt(t)}</b></span>
       <button class="rev-apply" onclick="applyTilt(${t})">套用</button></div>`;
+  const azRow = planar ? `<div class="rev-main"><span>${Math.abs(hCenter) < 0.05
+      ? `方位已對準橋段中心`
+      : `方位對準橋段中心：天線<b class="rev-tilt">向${hCenter > 0 ? "右" : "左"}轉 ${Math.abs(hCenter).toFixed(1)}°</b>`}
+      （橋段水平張角 ${hSpan.toFixed(1)}°）</span></div>` : "";
 
   return `
-    <div class="calc-result-label">${L.name}涵蓋模擬圖</div>
+    <div class="calc-result-label">${L.name}涵蓋模擬圖${planar ? "（俯視）" : ""}</div>
     <div class="sim-wrap">
       <div class="sim-bands">${chips}</div>
-      <div class="sim-svg-box">${renderHighRiseSim(sel, antH, tilt, T, pt)}</div>
+      <div class="sim-svg-box">${planar ? renderBridgePlan(sel, antH, tilt, T, samples) : renderHighRiseSim(sel, antH, tilt, T, pt)}</div>
       <div class="sim-caption">${caption}</div>
-      <div class="sim-note">示意圖：水平與垂直比例不同，數值為實際計算值；未考慮中間地形或建物遮蔽。</div>
+      <div class="sim-note">${planar
+        ? "俯視圖：依實際比例；色塊為橋面高度上 −3 dB（水平＋垂直）涵蓋範圍。未考慮遮蔽。"
+        : "示意圖：水平與垂直比例不同，數值為實際計算值；未考慮中間地形或建物遮蔽。"}</div>
+      ${planar && isNaN(sel.hbw) ? `<div class="calc-warn">此頻段無 H-BW 資料，未計水平衰減</div>` : ""}
     </div>
     <div class="calc-result-label">各頻段涵蓋</div>
     <div style="overflow-x:auto;margin:0 -14px;padding:0 14px 4px">
-    <table class="calc-table" style="min-width:540px">
+    <table class="calc-table" style="min-width:${planar ? 600 : 540}px">
       <thead><tr>
-        <th>Band</th><th>V-BW</th><th>涵蓋區段</th><th>比例</th>
-        <th>${L.p0}衰減</th><th>${L.p1}衰減</th><th>整段（需 ${span.toFixed(1)}°）</th>
+        <th>Band</th><th>${planar ? "V / H-BW" : "V-BW"}</th><th>涵蓋區段</th><th>比例</th>
+        <th>${L.p0}衰減</th><th>${L.p1}衰減</th>
+        <th>整段（需 ${planar ? `V ${span.toFixed(1)}° / H ${hSpan.toFixed(1)}°` : `${span.toFixed(1)}°`}）</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
     <div style="margin-top:8px;font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
       俯角 = atan((H<sub>ant</sub> − 目標高度) / 距離)；波束涵蓋俯角 θ−VBW/2 ~ θ+VBW/2<br>
-      衰減 ≈ 12·(偏離主瓣角 / VBW)²，上限 20 dB（3GPP 垂直場型近似）
+      ${planar
+        ? "衰減 ≈ 12·(方位偏角 / H-BW)² + 12·(俯仰偏角 / VBW)²，上限 25 dB（3GPP 場型近似）；−3 dB 以內視為涵蓋"
+        : "衰減 ≈ 12·(偏離主瓣角 / VBW)²，上限 20 dB（3GPP 垂直場型近似）"}
     </div>
-    <div class="calc-result-label" style="margin-top:16px">反推下傾角</div>
+    <div class="calc-result-label" style="margin-top:16px">反推${planar ? "下傾角與方位" : "下傾角"}</div>
     ${revRow(`主瓣對準${L.p0}`, a0)}
     ${revRow(`主瓣對準${L.p1}`, a1)}
     ${revRow(`置中涵蓋整段（需 VBW ≥ ${span.toFixed(1)}°）`, center)}
+    ${azRow}
     <div style="font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
       上仰（負值）通常需機械／支架調整，多數天線電下傾不支援負角度
     </div>`;
+}
+
+// 某高度平面上，俯角介於 lo ~ hi 的水平距離範圍 [rMin, rMax]；dh = 天線高 − 平面高
+function ringRange(dh, lo, hi) {
+  const tn = a => Math.tan(a * Math.PI / 180);
+  let rMin = 0, rMax = Infinity;
+  if (Math.abs(dh) < 1e-9) return lo <= 0 && hi >= 0 ? [0, Infinity] : null;
+  if (dh > 0) {                       // 平面在天線下方：俯角為正
+    if (hi <= 0) return null;
+    if (hi < 90) rMin = dh / tn(hi);
+    if (lo > 0) rMax = dh / tn(lo);
+  } else {                            // 平面在天線上方：俯角為負（上仰）
+    if (lo >= 0) return null;
+    if (lo > -90) rMin = dh / tn(lo);
+    if (hi < 0) rMax = dh / tn(hi);
+  }
+  return rMax >= rMin ? [rMin, rMax] : null;
+}
+
+// 高架橋俯視圖：天線在下方朝上，畫 H-BW 扇區、橋面高度的 −3 dB 涵蓋範圍、橋與被涵蓋的橋段
+function renderBridgePlan(d, antH, tilt, T, samples) {
+  const W = 360, H = 280, pad = 18, foot = 16;
+  const col = SIM_C[d.grp], t = simText, line = simLine;
+  const rad = a => a * Math.PI / 180;
+  const hasH = !isNaN(d.hbw);
+  const hbw = hasH ? d.hbw : 120;                       // 無資料時扇區僅作示意
+  const dh = antH - T.z;
+  const Rv = Math.max(...samples.map(x => x.q.x)) * 1.3;
+  const P = (th, r) => [r * Math.cos(rad(th)), r * Math.sin(rad(th))];   // [前方, 右方]
+
+  // −3 dB 涵蓋輪廓：每個方位角扣掉水平衰減後，剩下的垂直預算決定距離範圍
+  const outer = [], inner = [];
+  for (let k = 0; k <= 72; k++) {
+    const th = -hbw / 2 + hbw * k / 72;
+    const half = d.vbw / 2 * Math.sqrt(Math.max(0, 3 - hAtt(th, d.hbw)) / 3);
+    const rr = ringRange(dh, tilt - half, tilt + half);
+    if (!rr || rr[0] >= Rv) continue;
+    outer.push(P(th, Math.min(rr[1], Rv)));
+    inner.push(P(th, Math.min(rr[0], Rv)));
+  }
+  const sector = [];
+  for (let k = 0; k <= 36; k++) sector.push(P(-hbw / 2 + hbw * k / 36, Rv));
+
+  // 視窗：包含天線、橋與涵蓋範圍，等比例
+  const pts = [[0, 0], [-Rv * 0.04, 0], ...samples.map(x => [x.q.px, x.q.py]), ...outer, ...inner];
+  const fs = pts.map(p => p[0]), rs = pts.map(p => p[1]);
+  const fMin = Math.min(...fs), fMax = Math.max(...fs), rMin = Math.min(...rs), rMax = Math.max(...rs);
+  const sc = Math.min((W - 2 * pad) / Math.max(rMax - rMin, 1), (H - 2 * pad - foot) / Math.max(fMax - fMin, 1));
+  const offX = (W - (rMax - rMin) * sc) / 2, offY = (H - foot - (fMax - fMin) * sc) / 2;
+  const X = r => offX + (r - rMin) * sc;
+  const Y = f => H - foot - offY - (f - fMin) * sc;
+  const poly = arr => arr.map(([f, r]) => `${X(r).toFixed(1)},${Y(f).toFixed(1)}`).join(" ");
+  const ox = X(0), oy = Y(0);
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
+    aria-label="${esc(`高架橋俯視涵蓋圖：${d.b.Band_ID || ""}`)}">
+    <defs><clipPath id="bpClip"><rect x="0" y="0" width="${W}" height="${H - foot}"/></clipPath></defs>
+    <rect x="0" y="0" width="${W}" height="${H}" fill="${SIM_C.skyBot}"/>
+    <g clip-path="url(#bpClip)">`;
+
+  // H-BW 扇區與天線方向
+  s += `<polygon points="${ox.toFixed(1)},${oy.toFixed(1)} ${poly(sector)}" fill="${col}" fill-opacity="0.06"/>`;
+  [-hbw / 2, hbw / 2].forEach(th => { const [f, r] = P(th, Rv); s += line(ox, oy, X(r), Y(f), SIM_C.text3, 0.9, "4 3"); });
+  s += line(ox, oy, X(0), Y(Rv), SIM_C.text2, 1, "2 3");
+
+  // −3 dB 涵蓋範圍
+  if (outer.length > 1) {
+    s += `<polygon points="${poly([...outer, ...inner.slice().reverse()])}" fill="${col}" fill-opacity="0.22"
+      stroke="${col}" stroke-width="1" stroke-opacity="0.7"/>`;
+  }
+
+  // 橋面與被涵蓋的橋段
+  const bp = x => [x.q.px, x.q.py];
+  s += `<polyline points="${poly([bp(samples[0]), bp(samples[samples.length - 1])])}" stroke="${SIM_C.tower}"
+    stroke-width="7" stroke-linecap="round" fill="none"/>`;
+  let run = [];
+  const flush = () => {
+    if (run.length > 1) s += `<polyline points="${poly(run)}" stroke="${col}" stroke-width="7" stroke-linecap="round" fill="none"/>`;
+    run = [];
+  };
+  samples.forEach((x, i) => { if (d.cov[i]) run.push(bp(x)); else flush(); });
+  flush();
+  s += `<polyline points="${poly([bp(samples[0]), bp(samples[samples.length - 1])])}" stroke="${SIM_C.halo}"
+    stroke-width="0.8" stroke-dasharray="4 4" fill="none"/>`;
+  s += `</g>`;
+
+  // 起點／終點
+  [[samples[0], HR_LABELS.bridge.p0], [samples[samples.length - 1], HR_LABELS.bridge.p1]].forEach(([x, lab]) => {
+    const cx = X(x.q.py), cy = Y(x.q.px);
+    s += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="3" fill="${SIM_C.heading}"/>`;
+    s += t(Math.min(W - 4, Math.max(4, cx)), Math.max(10, cy - 8), lab,
+      { anchor: cx < 20 ? "start" : cx > W - 20 ? "end" : "middle", fill: SIM_C.heading, size: 9, weight: 600 });
+  });
+
+  // 天線
+  s += `<path d="M${ox},${oy - 7} L${ox - 5},${oy + 4} L${ox + 5},${oy + 4} Z" fill="${SIM_C.heading}"/>`;
+  s += t(ox + 8, oy + 4, `天線 ${antH}m`, { fill: SIM_C.heading, size: 9, weight: 600 });
+
+  // 標註
+  const [ef, er] = P(hbw / 2, Rv * 0.92);
+  s += t(Math.min(W - 4, X(er)), Math.max(10, Y(ef) + 12), hasH ? `H-BW ${hbw}°` : "無 H-BW 資料",
+    { anchor: "end", size: 8.5, fill: SIM_C.text2 });
+  s += t(X(0) + 4, Math.max(10, Y(Rv) + 10), "天線方向", { size: 8.5, fill: SIM_C.text2 });
+  s += t(6, 12, `−3 dB 涵蓋 @ 橋面 ${T.z.toFixed(1)} m · ${tilt >= 0 ? `下傾 ${tilt}°` : `上仰 ${-tilt}°`}`,
+    { size: 8.5, fill: SIM_C.heading });
+
+  // 比例尺
+  const want = (W * 0.22) / sc;
+  const len = [10, 20, 50, 100, 200, 250, 500, 1000, 2000, 5000, 10000].find(v => v >= want) || want;
+  const lx = 10, ly = H - 8, lw = len * sc;
+  s += `<line x1="${lx}" y1="${ly}" x2="${lx + lw}" y2="${ly}" stroke="${SIM_C.heading}" stroke-width="1.5"/>`;
+  s += `<line x1="${lx}" y1="${ly - 3}" x2="${lx}" y2="${ly + 1}" stroke="${SIM_C.heading}"/><line x1="${lx + lw}" y1="${ly - 3}" x2="${lx + lw}" y2="${ly + 1}" stroke="${SIM_C.heading}"/>`;
+  s += t(lx + lw + 5, ly + 3, fmtM(len), { size: 8.5, fill: SIM_C.heading });
+
+  return s + `</svg>`;
 }
 
 function renderHighRiseSim(d, antH, tilt, T, pt) {
