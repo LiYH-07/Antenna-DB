@@ -372,6 +372,8 @@
   .calc-table tbody tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
   .calc-mode-tabs { margin-bottom: 12px; }
+  .br-mode-tabs { margin-bottom: 10px; }
+  .calc-note { font-family: var(--font-mono); font-size: 9px; color: var(--text3); margin: -2px 0 10px; line-height: 1.6; }
   .calc-sub {
     font-family: var(--font-mono); font-size: 10px; color: var(--text2); letter-spacing: 0.08em;
     margin: 14px 0 8px; display: flex; align-items: center; gap: 6px;
@@ -681,10 +683,54 @@
             <input class="calc-input" type="number" id="calcFloorH" value="3.2" min="2" step="0.1" oninput="calcCoverage()">
           </div>
         </div>
+        <div class="filter-group-tabs br-mode-tabs" data-hr="bridge" style="display:none">
+          <div class="filter-group-tab active" onclick="setBrMode('ends', this)">兩端點</div>
+          <div class="filter-group-tab" onclick="setBrMode('center', this)">中心＋走向</div>
+        </div>
         <div class="calc-row" data-hr="bridge" style="display:none">
+          <div class="calc-field">
+            <div class="calc-label">天線方位角 (°) — 正北順時針</div>
+            <input class="calc-input" type="number" id="calcBrAntAz" value="0" min="0" max="360" step="1" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">橋面高度 (m) — 相對天線地面</div>
+            <input class="calc-input" type="number" id="calcBrH" value="25" step="1" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row" data-hr="bridge" data-br="ends" style="display:none">
+          <div class="calc-field">
+            <div class="calc-label">起點距離 (m)</div>
+            <input class="calc-input" type="number" id="calcBrR0" value="200" min="0" step="10" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">起點方位 (°) — 從基地台量</div>
+            <input class="calc-input" type="number" id="calcBrB0" value="0" min="0" max="360" step="1" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row" data-hr="bridge" data-br="ends" style="display:none">
+          <div class="calc-field">
+            <div class="calc-label">終點距離 (m)</div>
+            <input class="calc-input" type="number" id="calcBrR1" value="800" min="0" step="10" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">終點方位 (°) — 從基地台量</div>
+            <input class="calc-input" type="number" id="calcBrB1" value="0" min="0" max="360" step="1" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row" data-hr="bridge" data-br="center" style="display:none">
           <div class="calc-field">
             <div class="calc-label">橋中心距離 (m)</div>
             <input class="calc-input" type="number" id="calcBrD" value="500" min="1" step="10" oninput="calcCoverage()">
+          </div>
+          <div class="calc-field">
+            <div class="calc-label">橋中心方位 (°) — 從基地台量</div>
+            <input class="calc-input" type="number" id="calcBrAz" value="0" min="0" max="360" step="1" oninput="calcCoverage()">
+          </div>
+        </div>
+        <div class="calc-row" data-hr="bridge" data-br="center" style="display:none">
+          <div class="calc-field">
+            <div class="calc-label">橋走向 (°) — 起點往終點的方位</div>
+            <input class="calc-input" type="number" id="calcBrRot" value="0" min="0" max="360" step="5" oninput="calcCoverage()">
           </div>
           <div class="calc-field">
             <div class="calc-label">橋長 (m)</div>
@@ -693,24 +739,11 @@
         </div>
         <div class="calc-row" data-hr="bridge" style="display:none">
           <div class="calc-field">
-            <div class="calc-label">橋走向角 (°) — 0 沿天線方向、90 橫越</div>
-            <input class="calc-input" type="number" id="calcBrRot" value="0" min="-180" max="180" step="5" oninput="calcCoverage()">
-          </div>
-          <div class="calc-field">
-            <div class="calc-label">橋中心方位 (°) — 相對天線正前方，右正左負</div>
-            <input class="calc-input" type="number" id="calcBrAz" value="0" min="-180" max="180" step="5" oninput="calcCoverage()">
-          </div>
-        </div>
-        <div class="calc-row" data-hr="bridge" style="display:none">
-          <div class="calc-field">
-            <div class="calc-label">橋面高度 (m) — 相對天線地面</div>
-            <input class="calc-input" type="number" id="calcBrH" value="25" step="1" oninput="calcCoverage()">
-          </div>
-          <div class="calc-field">
             <div class="calc-label">用戶高度 (m) — 橋面以上</div>
             <input class="calc-input" type="number" id="calcBrUser" value="1.5" min="0" step="0.5" oninput="calcCoverage()">
           </div>
         </div>
+        <div class="calc-note" data-hr="bridge" style="display:none">方位皆為正北順時針 0–360°，可直接用 Google Earth 尺規量測（距離與 Heading）</div>
         <div class="calc-row" data-hr="hill" style="display:none">
           <div class="calc-field">
             <div class="calc-label">天線基地海拔 (m)</div>
@@ -1638,8 +1671,24 @@ const HR_LABELS = {
 function setHrType(type, el) {
   hrType = type;
   document.querySelectorAll(".hr-types .hr-type-chip").forEach(c => c.classList.toggle("active", c === el));
-  document.querySelectorAll("[data-hr]").forEach(r => { r.style.display = r.dataset.hr === type ? "" : "none"; });
+  syncHrRows();
   calcCoverage();
+}
+
+let brMode = "ends"; // 高架橋輸入方式："ends" 兩端點 | "center" 中心＋走向
+
+function setBrMode(mode, el) {
+  brMode = mode;
+  document.querySelectorAll(".br-mode-tabs .filter-group-tab").forEach(t => t.classList.toggle("active", t === el));
+  syncHrRows();
+  calcCoverage();
+}
+
+function syncHrRows() {
+  document.querySelectorAll("[data-hr]").forEach(r => {
+    const show = r.dataset.hr === hrType && (!r.dataset.br || r.dataset.br === brMode);
+    r.style.display = show ? "" : "none";
+  });
 }
 
 function fmtTilt(t) {
@@ -1647,9 +1696,11 @@ function fmtTilt(t) {
 }
 
 const numVal = id => parseFloat(document.getElementById(id).value);
+const norm180 = a => ((a % 360) + 540) % 360 - 180;       // 角度換算到 −180 ~ 180
+const norm360 = a => ((a % 360) + 360) % 360;
 
 // 讀取目標：p0 / p1 為 {x 水平距離, z 高度}；ground 為繪圖用地形折線
-// 高架橋另有 at(s)：沿橋位置 s (0~1) → {x 水平距離, z, az 方位角, px/py 俯視座標}
+// 高架橋另有 at(s)：沿橋位置 s (0~1) → {x 水平距離, z, az 相對天線方位, px/py 北/東座標}
 function hrTarget() {
   if (hrType === "bld") {
     const D = numVal("calcBldDist"), Hb = numVal("calcBldHeight"), fh = numVal("calcFloorH");
@@ -1657,18 +1708,32 @@ function hrTarget() {
     return { p0: { x: D, z: 0 }, p1: { x: D, z: Hb }, fh: fh > 0 ? fh : NaN, ground: [[0, 0]] };
   }
   if (hrType === "bridge") {
-    // 俯視座標：天線在原點，px = 天線正前方、py = 右方
-    const D = numVal("calcBrD"), len = numVal("calcBrLen"), h = numVal("calcBrH");
-    const rot = numVal("calcBrRot") || 0, az0 = numVal("calcBrAz") || 0, hu = numVal("calcBrUser") || 0;
-    if (!(D > 0) || !(len > 0) || isNaN(h)) return { err: "請輸入橋中心距離、橋長與橋面高度" };
-    const rad = a => a * Math.PI / 180, z = h + hu;
-    const cx = D * Math.cos(rad(az0)), cy = D * Math.sin(rad(az0));
-    const ux = Math.cos(rad(az0 + rot)), uy = Math.sin(rad(az0 + rot));
+    // 地理座標：天線在原點，N = 正北、E = 正東；方位皆為正北順時針
+    const A = numVal("calcBrAntAz") || 0, h = numVal("calcBrH"), hu = numVal("calcBrUser") || 0;
+    if (isNaN(h)) return { err: "請輸入橋面高度" };
+    const rad = a => a * Math.PI / 180;
+    const pos = (r, b) => [r * Math.cos(rad(b)), r * Math.sin(rad(b))];
+    let a, b;
+    if (brMode === "ends") {
+      const r0 = numVal("calcBrR0"), b0 = numVal("calcBrB0"), r1 = numVal("calcBrR1"), b1 = numVal("calcBrB1");
+      if ([r0, b0, r1, b1].some(isNaN) || r0 < 0 || r1 < 0) return { err: "請輸入起點與終點的距離和方位" };
+      a = pos(r0, b0); b = pos(r1, b1);
+    } else {
+      const D = numVal("calcBrD"), bc = numVal("calcBrAz") || 0, hd = numVal("calcBrRot") || 0, len = numVal("calcBrLen");
+      if (!(D > 0) || !(len > 0)) return { err: "請輸入橋中心距離與橋長" };
+      const c = pos(D, bc), u = pos(len / 2, hd);
+      a = [c[0] - u[0], c[1] - u[1]]; b = [c[0] + u[0], c[1] + u[1]];
+    }
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (!(len > 0)) return { err: "起點與終點不可相同" };
+    const z = h + hu;
+    // at(s)：x 水平距離、az 相對天線正前方的方位（右正左負）、px/py = 北/東座標
     const at = s => {
-      const px = cx + (s - 0.5) * len * ux, py = cy + (s - 0.5) * len * uy;
-      return { x: Math.hypot(px, py), z, az: Math.atan2(py, px) * 180 / Math.PI, px, py };
+      const n = a[0] + s * (b[0] - a[0]), e = a[1] + s * (b[1] - a[1]);
+      const brg = Math.atan2(e, n) * 180 / Math.PI;
+      return { x: Math.hypot(n, e), z, az: norm180(brg - A), px: n, py: e };
     };
-    return { at, p0: at(0), p1: at(1), deck: h, z, len, ground: [[0, 0]] };
+    return { at, p0: at(0), p1: at(1), deck: h, z, len, antAz: A, ground: [[0, 0]] };
   }
   const es = numVal("calcHillSite"), d0 = numVal("calcHillD0"), e0 = numVal("calcHillE0");
   const d1 = numVal("calcHillD1"), e1 = numVal("calcHillE1"), hu = numVal("calcHillUser") || 0;
@@ -1796,7 +1861,7 @@ function renderHighRise(base, chips, antH, tilt) {
       <button class="rev-apply" onclick="applyTilt(${t})">套用</button></div>`;
   const azRow = planar ? `<div class="rev-main"><span>${Math.abs(hCenter) < 0.05
       ? `方位已對準橋段中心`
-      : `方位對準橋段中心：天線<b class="rev-tilt">向${hCenter > 0 ? "右" : "左"}轉 ${Math.abs(hCenter).toFixed(1)}°</b>`}
+      : `方位對準橋段中心：天線<b class="rev-tilt">向${hCenter > 0 ? "右" : "左"}轉 ${Math.abs(hCenter).toFixed(1)}°</b>，方位角 ${norm360(T.antAz).toFixed(0)}° → <b class="rev-tilt">${norm360(T.antAz + hCenter).toFixed(1)}°</b>`}
       （橋段水平張角 ${hSpan.toFixed(1)}°）</span></div>` : "";
 
   return `
@@ -1806,7 +1871,7 @@ function renderHighRise(base, chips, antH, tilt) {
       <div class="sim-svg-box">${planar ? renderBridgePlan(sel, antH, tilt, T, samples) : renderHighRiseSim(sel, antH, tilt, T, pt)}</div>
       <div class="sim-caption">${caption}</div>
       <div class="sim-note">${planar
-        ? "俯視圖：依實際比例；色塊為橋面高度上 −3 dB（水平＋垂直）涵蓋範圍。未考慮遮蔽。"
+        ? "俯視圖：上方為正北、依實際比例；色塊為橋面高度上 −3 dB（水平＋垂直）涵蓋範圍。未考慮遮蔽。"
         : "示意圖：水平與垂直比例不同，數值為實際計算值；未考慮中間地形或建物遮蔽。"}</div>
       ${planar && isNaN(sel.hbw) ? `<div class="calc-warn">此頻段無 H-BW 資料，未計水平衰減</div>` : ""}
     </div>
@@ -1853,7 +1918,7 @@ function ringRange(dh, lo, hi) {
   return rMax >= rMin ? [rMin, rMax] : null;
 }
 
-// 高架橋俯視圖：天線在下方朝上，畫 H-BW 扇區、橋面高度的 −3 dB 涵蓋範圍、橋與被涵蓋的橋段
+// 高架橋俯視圖（上方為正北）：依天線方位角畫 H-BW 扇區、橋面高度的 −3 dB 涵蓋範圍、橋與被涵蓋的橋段
 function renderBridgePlan(d, antH, tilt, T, samples) {
   const W = 360, H = 280, pad = 18, foot = 16;
   const col = SIM_C[d.grp], t = simText, line = simLine;
@@ -1862,7 +1927,9 @@ function renderBridgePlan(d, antH, tilt, T, samples) {
   const hbw = hasH ? d.hbw : 120;                       // 無資料時扇區僅作示意
   const dh = antH - T.z;
   const Rv = Math.max(...samples.map(x => x.q.x)) * 1.3;
-  const P = (th, r) => [r * Math.cos(rad(th)), r * Math.sin(rad(th))];   // [前方, 右方]
+  const A = T.antAz || 0;
+  // 相對天線的方位 th、距離 r → [北, 東]
+  const P = (th, r) => [r * Math.cos(rad(A + th)), r * Math.sin(rad(A + th))];
 
   // −3 dB 涵蓋輪廓：每個方位角扣掉水平衰減後，剩下的垂直預算決定距離範圍
   const outer = [], inner = [];
@@ -1878,7 +1945,7 @@ function renderBridgePlan(d, antH, tilt, T, samples) {
   for (let k = 0; k <= 36; k++) sector.push(P(-hbw / 2 + hbw * k / 36, Rv));
 
   // 視窗：包含天線、橋與涵蓋範圍，等比例
-  const pts = [[0, 0], [-Rv * 0.04, 0], ...samples.map(x => [x.q.px, x.q.py]), ...outer, ...inner];
+  const pts = [[0, 0], P(180, Rv * 0.06), ...samples.map(x => [x.q.px, x.q.py]), ...outer, ...inner];
   const fs = pts.map(p => p[0]), rs = pts.map(p => p[1]);
   const fMin = Math.min(...fs), fMax = Math.max(...fs), rMin = Math.min(...rs), rMax = Math.max(...rs);
   const sc = Math.min((W - 2 * pad) / Math.max(rMax - rMin, 1), (H - 2 * pad - foot) / Math.max(fMax - fMin, 1));
@@ -1897,7 +1964,8 @@ function renderBridgePlan(d, antH, tilt, T, samples) {
   // H-BW 扇區與天線方向
   s += `<polygon points="${ox.toFixed(1)},${oy.toFixed(1)} ${poly(sector)}" fill="${col}" fill-opacity="0.06"/>`;
   [-hbw / 2, hbw / 2].forEach(th => { const [f, r] = P(th, Rv); s += line(ox, oy, X(r), Y(f), SIM_C.text3, 0.9, "4 3"); });
-  s += line(ox, oy, X(0), Y(Rv), SIM_C.text2, 1, "2 3");
+  const [bf, br] = P(0, Rv);
+  s += line(ox, oy, X(br), Y(bf), SIM_C.text2, 1, "2 3");
 
   // −3 dB 涵蓋範圍
   if (outer.length > 1) {
@@ -1936,7 +2004,12 @@ function renderBridgePlan(d, antH, tilt, T, samples) {
   const [ef, er] = P(hbw / 2, Rv * 0.92);
   s += t(Math.min(W - 4, X(er)), Math.max(10, Y(ef) + 12), hasH ? `H-BW ${hbw}°` : "無 H-BW 資料",
     { anchor: "end", size: 8.5, fill: SIM_C.text2 });
-  s += t(X(0) + 4, Math.max(10, Y(Rv) + 10), "天線方向", { size: 8.5, fill: SIM_C.text2 });
+  const [lf, lr] = P(0, Rv * 0.97);
+  s += t(Math.min(W - 4, Math.max(4, X(lr))), Math.min(H - foot - 4, Math.max(22, Y(lf))), `天線方向 ${norm360(A)}°`,
+    { anchor: X(lr) > W - 70 ? "end" : "start", size: 8.5, fill: SIM_C.text2 });
+  // 指北
+  s += `<g transform="translate(${W - 16},26)"><path d="M0,-11 L5,4 L0,1 L-5,4 Z" fill="${SIM_C.heading}"/></g>`;
+  s += t(W - 16, 12, "N", { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
   s += t(6, 12, `−3 dB 涵蓋 @ 橋面 ${T.z.toFixed(1)} m · ${tilt >= 0 ? `下傾 ${tilt}°` : `上仰 ${-tilt}°`}`,
     { size: 8.5, fill: SIM_C.heading });
 
