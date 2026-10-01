@@ -2405,6 +2405,7 @@ function renderLeaky(ant) {
       <div><span class="pl-k">結果</span>饋入點 <b>${cur.at(0).toFixed(1)} dBm</b> · ${two ? "中點" : "尾端"}（最差）<b>${cur.worst.toFixed(1)} dBm</b>
         · 單端最大涵蓋長度 <b>${cur.maxOne > 0 ? fmtM(cur.maxOne) : "0（饋入點已低於門檻）"}</b></div>
     </div>
+    ${renderLkSchematic(cur, L, two)}
     ${renderLkChart(cur, L, thr, two)}
     <div class="calc-result-label" style="margin-top:12px">${esc(op)} 各頻段 · 電纜 ${fmtM(L)} ${two ? "雙端" : "單端"}饋入</div>
     <div style="overflow-x:auto;margin:0 -14px;padding:0 14px 4px">
@@ -2423,6 +2424,67 @@ function renderLeaky(ant) {
 }
 
 let lkState = null;
+
+// 漏波電纜架構示意圖：設備 → Jumper／接頭 → 饋入點 ═ LCX ═ 饋入點（或終端負載），標出最弱點
+function renderLkSchematic(c, L, two) {
+  const W = 360, H = 196, xA = 52, xB = 308, yBox = 10, boxH = 32, yCab = 112;
+  const col = SIM_C[c.sp.grp || "LB"], t = simText, line = simLine;
+  const xMid = (xA + xB) / 2;
+  const fdTxt = `Jumper、接頭 ${c.fd.total.toFixed(1)} dB`;
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
+    aria-label="漏波電纜架構：${two ? "雙端" : "單端"}饋入，長度 ${fmtM(L)}，最弱點 ${fmtM(two ? L / 2 : L)}">
+    <rect x="0" y="0" width="${W}" height="${H}" fill="${SIM_C.skyBot}"/>`;
+
+  // 設備（RRU／Repeater）與 Jumper
+  const equip = (x, name) => {
+    s += `<rect x="${x - 44}" y="${yBox}" width="88" height="${boxH}" rx="5" fill="${SIM_C.halo}" stroke="${SIM_C.tower}" stroke-width="1.2"/>`;
+    s += t(x, yBox + 13, name, { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
+    s += t(x, yBox + 25, "RRU／Repeater", { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
+    s += line(x, yBox + boxH, x, yCab - 6, SIM_C.tower, 1.6);
+    s += `<rect x="${x - 3}" y="${(yBox + boxH + yCab) / 2 - 4}" width="6" height="8" fill="${SIM_C.tower}"/>`;
+  };
+  equip(xA, "A 端設備");
+  s += t(xA + 8, (yBox + boxH + yCab) / 2 + 3, fdTxt, { size: 8.5, fill: SIM_C.text2 });
+  if (two) {
+    equip(xB, "B 端設備");
+    s += t(xB - 8, (yBox + boxH + yCab) / 2 + 3, fdTxt, { anchor: "end", size: 8.5, fill: SIM_C.text2 });
+  }
+
+  // LCX：雙線表示電纜，上方短斜線表示沿線漏出的信號
+  s += `<line x1="${xA}" y1="${yCab - 2}" x2="${xB}" y2="${yCab - 2}" stroke="${col}" stroke-width="2"/>
+    <line x1="${xA}" y1="${yCab + 2}" x2="${xB}" y2="${yCab + 2}" stroke="${col}" stroke-width="2"/>`;
+  for (let x = xA + 14; x < xB - 8; x += 16) {
+    if (Math.abs(x - xMid) < 30) continue;
+    s += line(x, yCab - 6, x + 4, yCab - 14, col, 1, "");
+  }
+  s += t(xMid, yCab - 10, `LCX ${fmtM(L)} · ${c.sp.att.toFixed(2)} dB/100m`, { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
+
+  // 單端：末端接終端負載
+  if (!two) {
+    s += `<rect x="${xB}" y="${yCab - 7}" width="16" height="14" rx="2" fill="${SIM_C.tower}"/>`;
+    s += t(xB + 8, yCab - 12, "終端負載", { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
+  }
+
+  // 點的標示：位置與 RSRP
+  const mark = (x, pos, name, weak) => {
+    const v = c.at(pos);
+    if (weak) s += `<path d="M${x},${yCab + 7} l-5,9 h10 z" fill="${SIM_C.far}"/>`;
+    else s += `<circle cx="${x}" cy="${yCab}" r="5" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2"/>`;
+    const y0 = yCab + (weak ? 30 : 22);
+    s += t(x, y0, name, { anchor: "middle", size: 9, fill: weak ? SIM_C.far : SIM_C.heading, weight: 600 });
+    s += t(x, y0 + 12, `位置 ${fmtM(pos)}`, { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
+    s += t(x, y0 + 24, `${v.toFixed(1)} dBm`, { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
+  };
+  mark(xA, 0, "A 端饋入點", false);
+  if (two) {
+    mark(xB, L, "B 端饋入點", false);
+    mark(xMid, L / 2, "最弱點", true);
+  } else {
+    mark(xB, L, "末端・最弱點", true);
+  }
+  return `<div class="pl-title">架構示意 · ${two ? "雙端" : "單端"}饋入（RSRP 為該位置車廂內用戶）</div>
+    <div class="sim-svg-box" style="margin-bottom:10px">${s}</svg></div>`;
+}
 
 function renderLkChart(c, L, thr, two) {
   const W = 360, H = 200, l = 40, r = 12, t = 16, b = 30, N = 200;
