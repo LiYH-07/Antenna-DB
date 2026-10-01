@@ -419,7 +419,15 @@
   .calc-inner[data-mode="leaky"] .only-ground,
   .calc-inner[data-mode="leaky"] .only-high,
   .calc-inner[data-mode="leaky"] .not-leaky,
-  .calc-inner:not([data-mode="leaky"]) .only-leaky { display: none; }
+  .calc-inner:not([data-mode="leaky"]) .only-leaky,
+  .calc-inner[data-track="ant"] .only-lcx,
+  .calc-inner[data-track="ant"] .only-lcx-js,
+  .calc-inner:not([data-track="ant"]) .only-ta { display: none !important; }
+  .track-sub-tabs { margin-bottom: 10px; }
+  .ta-row { display: grid; grid-template-columns: 34px 1fr 1fr 30px; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .ta-row .ta-name { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--heading); }
+  .ta-row .calc-input, .ta-row .calc-select { padding: 6px 8px; font-size: 13px; }
+  .ta-del { background: none; border: 1px solid var(--border2); border-radius: 6px; color: var(--text3); cursor: pointer; height: 30px; }
   .hr-up { color: var(--blue); font-weight: 600; }
   .hr-sub { color: var(--text3); font-size: 9.5px; }
   .hr-types { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -588,11 +596,11 @@
       <span class="calc-toggle-icon">▾</span>
     </div>
     <div class="calc-panel" id="calcPanel">
-      <div class="calc-inner" id="calcInner" data-mode="ground">
+      <div class="calc-inner" id="calcInner" data-mode="ground" data-track="lcx">
         <div class="filter-group-tabs calc-mode-tabs">
           <div class="filter-group-tab active" onclick="setCalcMode('ground', this)">地面涵蓋</div>
           <div class="filter-group-tab" onclick="setCalcMode('high', this)">高處涵蓋</div>
-          <div class="filter-group-tab" onclick="setCalcMode('leaky', this)">漏波電纜</div>
+          <div class="filter-group-tab" onclick="setCalcMode('leaky', this)">軌道沿線</div>
         </div>
         <div class="calc-row full">
           <div class="calc-field">
@@ -625,20 +633,25 @@
           </div>
         </div>
         <div class="only-leaky">
-          <div class="calc-sub">漏波電纜 · 規格取自「Antenna_Band_Spec」備註</div>
+          <div class="filter-group-tabs track-sub-tabs">
+            <div class="filter-group-tab active" onclick="setTrackSub('lcx', this)">漏波電纜</div>
+            <div class="filter-group-tab" onclick="setTrackSub('ant', this)">軌旁天線</div>
+          </div>
+          <div class="calc-sub only-lcx">漏波電纜 · 規格取自「Antenna_Band_Spec」備註</div>
+          <div class="calc-sub only-ta">軌旁天線 · 增益與波束寬取自「Antenna_Band_Spec」</div>
           <div class="calc-row">
             <div class="calc-field">
-              <div class="calc-label">電纜長度 (m)</div>
+              <div class="calc-label"><span class="only-lcx">電纜長度 (m)</span><span class="only-ta">計算路段長度 (m)</span></div>
               <input class="calc-input" type="number" id="lkLen" value="500" min="1" step="10" oninput="calcCoverage()">
             </div>
-            <div class="calc-field">
+            <div class="calc-field only-lcx">
               <div class="calc-label">饋入方式</div>
               <select class="calc-select" id="lkFeed" onchange="calcCoverage()"><option value="one">單端饋入</option><option value="two">雙端饋入（兩端同功率）</option></select>
             </div>
           </div>
           <div class="calc-row">
             <div class="calc-field">
-              <div class="calc-label">電纜高度 (m)</div>
+              <div class="calc-label"><span class="only-lcx">電纜高度 (m)</span><span class="only-ta">天線高度 h<sub>ant</sub> (m)</span></div>
               <input class="calc-input" type="number" id="lkCabH" value="2.5" min="0" step="0.1" oninput="calcCoverage()">
             </div>
             <div class="calc-field">
@@ -648,18 +661,39 @@
           </div>
           <div class="calc-row full">
             <div class="calc-field">
-              <div class="calc-label">電纜到用戶的水平距離 (m)</div>
+              <div class="calc-label"><span class="only-lcx">電纜到用戶的水平距離 (m)</span><span class="only-ta">天線到用戶的橫向距離 D<sub>perp</sub> (m)</span></div>
               <input class="calc-input" type="number" id="lkDist" value="6" min="0.5" step="0.5" oninput="syncChips('lkDistChips','lkDist'); calcCoverage()">
               <div class="veg-chips" id="lkDistChips"><div class="hr-type-chip" data-v="3" onclick="setChip('lkDist','lkDistChips',3)">靠窗 3</div><div class="hr-type-chip" data-v="4.5" onclick="setChip('lkDist','lkDistChips',4.5)">走道 4.5</div><div class="hr-type-chip active" data-v="6" onclick="setChip('lkDist','lkDistChips',6)">對側 6</div></div>
             </div>
           </div>
-          <div class="calc-row">
+          <div class="calc-row only-lcx">
             <div class="calc-field">
               <div class="calc-label">規格範圍取值（耦合損耗 95%、50% 同時計算）</div>
               <select class="calc-select" id="lkPick" onchange="calcCoverage()"><option value="mid" selected>中間值</option><option value="max">上限（保守）</option></select>
             </div>
           </div>
-          <div id="lkCustom" style="display:none">
+          <div class="only-ta">
+            <div class="calc-label" style="margin-bottom:4px">天線位置與指向（沿軌道里程）</div>
+            <div id="taList"></div>
+            <button class="rev-apply" style="margin:2px 0 10px" onclick="taAdd()">＋ 新增天線</button>
+            <div class="calc-row">
+              <div class="calc-field">
+                <div class="calc-label">下傾角 θ (°) — 同高時約 0</div>
+                <input class="calc-input" type="number" id="taTilt" value="0" step="0.5" oninput="calcCoverage()">
+              </div>
+              <div class="calc-field">
+                <div class="calc-label">朝軌道偏角 φ<sub>0</sub> (°)</div>
+                <input class="calc-input" type="number" id="taPhi" value="0" min="0" max="90" step="1" oninput="calcCoverage()">
+              </div>
+            </div>
+            <div class="calc-row full">
+              <div class="calc-field">
+                <div class="calc-label">其他附加損耗 L<sub>misc</sub> (dB) — 橋墩、隔音牆等</div>
+                <input class="calc-input" type="number" id="taMisc" value="0" min="0" step="1" oninput="calcCoverage()">
+              </div>
+            </div>
+          </div>
+          <div id="lkCustom" class="only-lcx-js" style="display:none">
             <div class="calc-row">
               <div class="calc-field">
                 <div class="calc-label">縱向衰減 (dB/100m)</div>
@@ -1392,10 +1426,11 @@ function toggleCalc() {
 function buildCalcSelect() {
   const sel = document.getElementById("calcAntenna");
   const prev = sel.value;
-  const leaky = calcMode === "leaky";
+  const leaky = calcMode === "leaky" && trackSub === "lcx";
   document.getElementById("calcAntLabel").textContent = leaky ? "漏波電纜型號" : "天線型號";
   sel.innerHTML = `<option value="">${leaky ? "— 請選擇漏波電纜 —" : "— 請選擇天線 —"}</option>`;
-  const names = leaky ? leakyNames() : masterData.map(a => a.Antenna_Name);
+  const lk = new Set(leakyNames());
+  const names = leaky ? [...lk] : masterData.map(a => a.Antenna_Name).filter(n => calcMode !== "leaky" || !lk.has(n));
   names.forEach(n => {
     const opt = document.createElement("option");
     opt.value = n;
@@ -1438,6 +1473,17 @@ function fmtM(m) {
 
 let calcMode = "ground"; // "ground" | "high" | "leaky"
 
+// 軌道沿線的子模式："lcx" 漏波電纜 | "ant" 軌旁天線
+let trackSub = "lcx";
+
+function setTrackSub(sub, el) {
+  trackSub = sub;
+  document.getElementById("calcInner").dataset.track = sub;
+  document.querySelectorAll(".track-sub-tabs .filter-group-tab").forEach(t => t.classList.toggle("active", t === el));
+  if (sub === "ant") renderTaList();
+  buildCalcSelect();
+}
+
 function setCalcMode(mode, el) {
   const switchList = (calcMode === "leaky") !== (mode === "leaky");
   calcMode = mode;
@@ -1462,7 +1508,10 @@ function calcCoverage() {
   const userH  = parseFloat(document.getElementById("calcUserHeight").value);
   const tilt   = parseFloat(document.getElementById("calcTilt").value);
 
-  if (calcMode === "leaky") { resultEl.innerHTML = antennaName ? renderLeaky(antennaName) : ""; return; }
+  if (calcMode === "leaky") {
+    resultEl.innerHTML = !antennaName ? "" : trackSub === "ant" ? renderTrackAnt(antennaName) : renderLeaky(antennaName);
+    return;
+  }
   if (!antennaName) { resultEl.innerHTML = ""; return; }
   if (isNaN(antH) || isNaN(tilt)) { resultEl.innerHTML = ""; return; }
 
@@ -2559,6 +2608,280 @@ function lkHover(ev) {
 function lkHide() {
   ["lkCross", "lkDot", "lkDot50"].forEach(id => document.getElementById(id)?.setAttribute("visibility", "hidden"));
   const tip = document.getElementById("lkTip");
+  if (tip) tip.style.display = "none";
+}
+
+// ═══════════════════════════════════════════════
+// 軌旁天線：一般天線裝在軌道側邊，沿軌道照射
+//   d(x) = √(x² + Dperp² + (hant − hUE)²)
+//   RSRP(x) = P_RS + G(φ,θ) − L_feeder − FSPL(d) − L_train − L_body − L_misc
+//   多支天線各自計算，取最大值為服務電平（不同 Cell 不做功率相加）
+// ═══════════════════════════════════════════════
+
+let taAnts = [{ x: 0, dir: 1 }, { x: 500, dir: -1 }];
+const TA_COLS = ["#6A849C", "#A6765F", "#6E8A6C", "#8A7B9B", "#B08D57", "#5F8F8F"];
+
+function renderTaList() {
+  document.getElementById("taList").innerHTML = taAnts.map((a, i) => `<div class="ta-row">
+      <span class="ta-name" style="color:${TA_COLS[i % TA_COLS.length]}">A${i + 1}</span>
+      <input class="calc-input" type="number" step="10" value="${a.x}" aria-label="A${i + 1} 位置 (m)" data-i="${i}" oninput="taSet(this, 'x')">
+      <select class="calc-select" aria-label="A${i + 1} 指向" data-i="${i}" onchange="taSet(this, 'dir')">
+        <option value="1"${a.dir > 0 ? " selected" : ""}>→ 往里程增加</option>
+        <option value="-1"${a.dir < 0 ? " selected" : ""}>← 往里程減少</option>
+      </select>
+      <button class="ta-del" aria-label="刪除 A${i + 1}" data-i="${i}" onclick="taDel(this)"${taAnts.length < 2 ? " disabled" : ""}>✕</button>
+    </div>`).join("");
+}
+
+function taSet(el, k) {
+  const v = parseFloat(el.value);
+  if (isNaN(v)) return;
+  taAnts[Number(el.dataset.i)][k] = v;
+  calcCoverage();
+}
+
+function taAdd() {
+  const last = taAnts[taAnts.length - 1];
+  taAnts.push({ x: last ? last.x + 500 : 0, dir: last ? -1 : 1 });   // 新天線預設往回照向前一支
+  renderTaList();
+  calcCoverage();
+}
+
+function taDel(el) {
+  if (taAnts.length < 2) return;
+  taAnts.splice(Number(el.dataset.i), 1);
+  renderTaList();
+  calcCoverage();
+}
+
+function renderTrackAnt(ant) {
+  if (!plData) buildPlSelects();
+  if (plBuiltFor !== ant) buildPlBandSelect();
+  if (!document.getElementById("taList").children.length) renderTaList();
+  const rows = bandData.filter(b => b.Antenna_Name === ant);
+
+  const L = Math.max(1, numVal("lkLen") || 0);
+  const hA = numVal("lkCabH") || 0, hU = numVal("lkUeH") || 0, dh = hA - hU;
+  const Dp = Math.max(numVal("lkDist") || 0, 0.1);
+  const tilt = numVal("taTilt") || 0, phi0 = numVal("taPhi") || 0, misc = Math.max(0, numVal("taMisc") || 0);
+  const port = numVal("plTx"), boost = numVal("plBoost") || 0, thr = numVal("plThr");
+  const pen = Math.max(0, numVal("plPen") || 0), body = Math.max(0, numVal("plBody") || 0), cal = numVal("plCal") || 0;
+  if (isNaN(port) || isNaN(thr)) return "";
+  const ants = taAnts.filter(a => isFinite(a.x));
+
+  // 天線在此頻段的那一列：完整涵蓋 DL 頻段者優先，再取頻段最窄者
+  const rowFor = t => {
+    const cand = rows.filter(b => subOverlaps(b, t.dlLo, t.dlHi));
+    if (!cand.length) return null;
+    const span = b => parseFloat(b.SubBand_High_MHz) - parseFloat(b.SubBand_Low_MHz);
+    const full = cand.filter(b => parseFloat(b.SubBand_Low_MHz) <= t.dlLo && parseFloat(b.SubBand_High_MHz) >= t.dlHi);
+    return (full.length ? full : cand).reduce((a, b) => span(b) < span(a) ? b : a);
+  };
+
+  // 單一天線 a 在里程 x 的幾何與 RSRP
+  const geo = (a, x) => {
+    const dx = (x - a.x) * a.dir, horiz = Math.hypot(dx, Dp), d = Math.hypot(horiz, dh);
+    const phi = Math.atan2(Dp, dx) * 180 / Math.PI - phi0;
+    const theta = Math.atan2(dh, horiz) * 180 / Math.PI;
+    return { d, phi, theta };
+  };
+
+  const budget = t => {
+    const b = rowFor(t);
+    if (!b) return null;
+    const f = t.center, G = parseFloat(b.Gain_dBi) || 0;
+    const hbw = parseFloat(b.Horizontal_BW_deg), vbw = parseFloat(b.Vertical_BW_deg) || 65;
+    const rs = port - 10 * Math.log10(12 * t.prb) + boost, fd = feederLoss(f);
+    const head = rs - fd.total + G - pen - body - misc + cal;
+    const one = (a, x) => {
+      const g = geo(a, x);
+      const att = totAtt(g.phi, g.theta - tilt, hbw, vbw);
+      const fspl = 20 * Math.log10(Math.max(g.d, 1)) + 20 * Math.log10(f) - 27.55;
+      return { ...g, att, fspl, v: head - att - fspl };
+    };
+    const each = x => ants.map(a => one(a, x).v);
+    const at = x => Math.max(...each(x));
+    let worst = Infinity, wx = 0, ok = 0;
+    for (let i = 0; i <= 400; i++) {
+      const x = L * i / 400, v = at(x);
+      if (v < worst) { worst = v; wx = x; }
+      if (v >= thr) ok++;
+    }
+    return { t, f, b, G, hbw, vbw, rs, fd, head, one, each, at, worst, wx, frac: ok / 401, grp: bandGroup(b.Band_ID) };
+  };
+
+  const tele = plSelectedTele();
+  if (!tele) return `<div class="calc-warn">請在「頻譜」選擇電信頻段</div>`;
+  if (!ants.length) return `<div class="calc-warn">請至少新增一支天線</div>`;
+  const cur = budget(tele);
+  if (!cur) return `<div class="calc-warn">此天線沒有涵蓋 ${esc(plTeleLabel(tele))} 的頻段</div>`;
+
+  const op = document.getElementById("plOp").value;
+  const list = plData.tele.filter(t => t.op === op).map(budget).filter(Boolean);
+  const tRows = list.map(c => `<tr class="${c.t === tele ? "sel" : ""}">
+      <td>${esc(plTeleName(c.t))}</td>
+      <td>${c.f}</td>
+      <td>${c.G}</td>
+      <td>${isNaN(c.hbw) ? "—" : c.hbw}° / ${c.vbw}°</td>
+      <td><span class="${c.worst >= thr ? "calc-near" : "rev-warn"}">${c.worst.toFixed(1)}</span></td>
+      <td>${fmtM(c.wx)}</td>
+      <td>${Math.round(c.frac * 100)}%</td>
+    </tr>`).join("");
+
+  const fd = cur.fd;
+  const feederTxt = fd.aau ? `主動天線（AAU）不計 Cable，其他 ${fd.other} = <b>${fd.total.toFixed(2)} dB</b>`
+    : `${fd.type ? `${esc(fd.type)} ${fd.len} m × ${fd.rate.toFixed(1)} dB/100m = ${fd.cable.toFixed(2)}` : "不使用 Cable 0"}
+    ＋ ${fd.n} × ${fd.per} Connector ＋ 其他 ${fd.other} = <b>${fd.total.toFixed(2)} dB</b>`;
+  const sIdx = cur.each(cur.wx).reduce((bi, v, i, arr) => v > arr[bi] ? i : bi, 0);
+  const ws = cur.one(ants[sIdx], cur.wx);
+  const warns = [
+    "FSPL 假設天線與車廂之間為視距，未計車體遮蔽與多重反射",
+    "背向（φ 超過 ±90°）以 3GPP 場型上限 25 dB 近似前後比",
+    "車廂穿透、人體與其他損耗為經驗值，建議以車上實測校正"
+  ];
+  if (Dp < 1) warns.unshift("橫向距離太小，天線正下方的場型近似不準");
+
+  return `
+    <div class="calc-result-label">軌旁天線 RSRP · ${esc(plTeleLabel(tele))} · 門檻 ${thr} dBm</div>
+    <div class="pl-sum">
+      <div><span class="pl-k">頻譜</span>${esc(plTeleLabel(tele))} · ${tele.bw} MHz · ${tele.prb} PRB</div>
+      <div><span class="pl-k">RS 功率</span>${port} − 10·log10(12×${tele.prb}) ${boost >= 0 ? "+" : "−"} ${Math.abs(boost)} = <b>${cur.rs.toFixed(2)} dBm</b></div>
+      <div><span class="pl-k">饋線</span>${feederTxt}</div>
+      <div><span class="pl-k">天線</span>${esc(cur.b.Band_ID || "—")} ${esc(cur.b.SubBand_Low_MHz)}–${esc(cur.b.SubBand_High_MHz)} MHz：
+        增益 <b>${cur.G} dBi</b>、H-BW ${isNaN(cur.hbw) ? "—" : cur.hbw + "°"}、V-BW ${cur.vbw}°，下傾 ${tilt}°、朝軌道偏 ${phi0}°</div>
+      <div><span class="pl-k">幾何</span>h<sub>ant</sub> ${hA} m、h<sub>UE</sub> ${hU} m、D<sub>perp</sub> ${Dp} m，共 ${ants.length} 支天線</div>
+      <div><span class="pl-k">用戶端</span>穿透 ${pen} ＋ 人體 ${body} ＋ 其他 ${misc} dB${cal ? `，實測校正 ${cal > 0 ? "+" : ""}${cal} dB` : ""}</div>
+      <div><span class="pl-k">最弱點</span>里程 <b>${fmtM(cur.wx)}</b> 由 A${sIdx + 1} 服務：d ${ws.d.toFixed(1)} m、FSPL ${ws.fspl.toFixed(1)} dB、
+        場型 −${ws.att.toFixed(1)} dB（水平偏 ${Math.abs(ws.phi).toFixed(1)}°）→ <b class="${cur.worst >= thr ? "" : "rev-warn"}">${cur.worst.toFixed(1)} dBm</b></div>
+      <div><span class="pl-k">涵蓋</span>路段 ${fmtM(L)} 中 <b>${Math.round(cur.frac * 100)}%</b> ≥ ${thr} dBm</div>
+    </div>
+    ${renderTaSchematic(cur, ants, L, Dp)}
+    ${renderTaChart(cur, ants, L, thr)}
+    <div class="calc-result-label" style="margin-top:12px">${esc(op)} 各頻段 · 路段 ${fmtM(L)} · ${ants.length} 支天線取最大值</div>
+    <div style="overflow-x:auto;margin:0 -14px;padding:0 14px 4px">
+    <table class="calc-table" style="min-width:480px">
+      <thead><tr><th>頻段</th><th>MHz</th><th>增益 dBi</th><th>H／V-BW</th><th>最弱點 dBm</th><th>最弱位置</th><th>涵蓋比例</th></tr></thead>
+      <tbody>${tRows}</tbody>
+    </table></div>
+    <div class="pl-warn">⚠ ${warns.join("；")}</div>
+    <div style="margin-top:6px;font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
+      d(x) = √(x² + D<sub>perp</sub>² + (h<sub>ant</sub> − h<sub>UE</sub>)²)；FSPL = 20·log10(d) + 20·log10(f MHz) − 27.55<br>
+      RSRP<sub>i</sub>(x) = RS 功率 + G − 場型衰減(φ, θ) − 饋線 − FSPL − 穿透 − 人體 − 其他 + 實測校正<br>
+      服務電平 = max<sub>i</sub> RSRP<sub>i</sub>(x)（不同 Cell 不做功率相加）
+    </div>`;
+}
+
+// 俯視示意：軌道、軌旁天線與指向扇形、最弱點（橫向距離不按比例）
+function renderTaSchematic(c, ants, L, Dp) {
+  const W = 360, H = 150, pad = 26, yTrk = 60, yAnt = 112;
+  const lo = Math.min(0, ...ants.map(a => a.x)), hi = Math.max(L, ...ants.map(a => a.x));
+  const X = x => pad + (x - lo) / (hi - lo || 1) * (W - 2 * pad);
+  const t = simText, line = simLine;
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
+    aria-label="軌旁天線俯視：${ants.length} 支天線，最弱點里程 ${fmtM(c.wx)}，${c.worst.toFixed(1)} dBm">
+    <rect x="0" y="0" width="${W}" height="${H}" fill="${SIM_C.skyBot}"/>`;
+  // 計算路段底色與軌道
+  s += `<rect x="${X(0).toFixed(1)}" y="${yTrk - 16}" width="${(X(L) - X(0)).toFixed(1)}" height="32" fill="${SIM_C.soil2}" opacity="0.6"/>`;
+  s += line(4, yTrk - 6, W - 4, yTrk - 6, SIM_C.tower, 1.6) + line(4, yTrk + 6, W - 4, yTrk + 6, SIM_C.tower, 1.6);
+  for (let x = 8; x < W; x += 10) s += line(x, yTrk - 9, x, yTrk + 9, SIM_C.tower, 0.6);
+  s += t(X(0), yTrk - 22, "0", { anchor: "middle", size: 8.5 }) + t(X(L), yTrk - 22, fmtM(L), { anchor: "middle", size: 8.5 });
+  s += t(W / 2, 14, "軌道（列車行進方向 ↔）", { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
+  // 橫向距離標示
+  s += line(W - 12, yTrk, W - 12, yAnt, SIM_C.text3, 0.8, "3 2") + t(W - 15, (yTrk + yAnt) / 2 + 3, `D⊥ ${Dp} m`, { anchor: "end", size: 8.5 });
+  // 天線：扇形示意水平波束（往軌道方向）
+  const hb = isNaN(c.hbw) ? 65 : c.hbw, r = 34;
+  ants.forEach((a, i) => {
+    const x = X(a.x), col = TA_COLS[i % TA_COLS.length];
+    const ang = numVal("taPhi") || 0;
+    const p = deg => { const rad = deg * Math.PI / 180; return [x + a.dir * r * Math.cos(rad), yAnt - r * Math.sin(rad)]; };
+    const [x1, y1] = p(ang - hb / 2), [x2, y2] = p(ang + hb / 2);
+    s += `<path d="M${x.toFixed(1)},${yAnt} L${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 0 ${a.dir > 0 ? 0 : 1} ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="${col}" fill-opacity="0.18" stroke="${col}" stroke-width="0.8"/>`;
+    s += `<rect x="${(x - 3).toFixed(1)}" y="${yAnt - 5}" width="6" height="10" rx="1" fill="${col}"/>`;
+    s += t(x, yAnt + 18, `A${i + 1}`, { anchor: "middle", size: 9, fill: col, weight: 600 });
+    s += t(x, yAnt + 30, fmtM(a.x), { anchor: "middle", size: 8.5 });
+  });
+  // 最弱點
+  const wx = X(c.wx);
+  s += `<path d="M${wx.toFixed(1)},${yTrk - 2} l-5,-9 h10 z" fill="${SIM_C.far}"/>`;
+  s += t(wx, yTrk - 30, `最弱 ${c.worst.toFixed(1)} dBm`, { anchor: wx < 70 ? "start" : wx > W - 70 ? "end" : "middle", size: 9, fill: SIM_C.far, weight: 600 });
+  return `<div class="pl-title">俯視示意 · 軌旁天線位置與指向（橫向距離不按比例）</div>
+    <div class="sim-svg-box" style="margin-bottom:10px">${s}</svg></div>`;
+}
+
+let taState = null;
+
+// 沿線 RSRP：細線為各天線，粗線為服務電平（取最大值）
+function renderTaChart(c, ants, L, thr) {
+  const W = 360, H = 200, l = 40, r = 12, t = 16, b = 30, N = 200;
+  const pts = [];
+  for (let i = 0; i <= N; i++) { const x = L * i / N, e = c.each(x); pts.push([x, Math.max(...e), ...e]); }
+  const env = pts.map(p => p[1]);
+  const yTop = Math.ceil(Math.max(...env, thr) / 10) * 10;
+  const yBot = Math.floor(Math.min(Math.min(...env), thr - 10) / 10) * 10 - 10;
+  const X = x => l + x / L * (W - l - r);
+  const Y = v => t + (yTop - Math.max(v, yBot)) / (yTop - yBot) * (H - t - b);
+  const col = SIM_C[c.grp];
+  taState = { c, L, X, Y, W, l, r, thr };
+  const path = k => pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[k]).toFixed(1)}`).join("");
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
+    aria-label="軌旁天線沿線 RSRP：最弱 ${c.worst.toFixed(1)} dBm 於 ${fmtM(c.wx)}">`;
+  const yStep = (yTop - yBot) / 10 > 7 ? 20 : 10;
+  for (let v = yBot; v <= yTop; v += yStep) {
+    s += `<line x1="${l}" y1="${Y(v).toFixed(1)}" x2="${W - r}" y2="${Y(v).toFixed(1)}" stroke="#D8D0C6" stroke-width="0.6"/>`;
+    s += `<text x="${l - 5}" y="${(Y(v) + 3).toFixed(1)}" font-size="8.5" fill="${SIM_C.text3}" text-anchor="end">${v}</text>`;
+  }
+  const xStep = [10, 20, 50, 100, 200, 250, 500, 1000, 2000, 5000].find(st => L / st <= 6) || 5000;
+  for (let x = 0; x <= L + 1e-9; x += xStep) {
+    s += `<text x="${X(x).toFixed(1)}" y="${H - b + 13}" font-size="8.5" fill="${SIM_C.text3}" text-anchor="middle">${L >= 2000 ? +(x / 1000).toFixed(1) : x}</text>`;
+  }
+  s += `<text x="${W - r}" y="${H - 4}" font-size="8.5" fill="${SIM_C.text2}" text-anchor="end">沿軌道里程 ${L >= 2000 ? "km" : "m"}</text>`;
+  s += `<text x="4" y="${t - 5}" font-size="8.5" fill="${SIM_C.text2}">dBm</text>`;
+  s += `<line x1="${l}" y1="${H - b}" x2="${W - r}" y2="${H - b}" stroke="${SIM_C.text3}" stroke-width="0.8"/>`;
+  s += `<line x1="${l}" y1="${Y(thr).toFixed(1)}" x2="${W - r}" y2="${Y(thr).toFixed(1)}" stroke="${SIM_C.text2}" stroke-width="1" stroke-dasharray="4 3"/>`;
+  s += simText(W - r - 2, Y(thr) - 4, `門檻 ${thr}`, { anchor: "end", size: 8.5, fill: SIM_C.text2 });
+  s += `<clipPath id="taClip"><rect x="${l}" y="${t}" width="${W - l - r}" height="${H - t - b}"/></clipPath><g clip-path="url(#taClip)">`;
+  ants.forEach((a, i) => {
+    s += `<path d="${path(i + 2)}" fill="none" stroke="${TA_COLS[i % TA_COLS.length]}" stroke-width="1" stroke-opacity="0.75"/>`;
+  });
+  s += `<path d="${path(1)}" fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></g>`;
+  // 各天線直接標名：在其曲線最高處
+  ants.forEach((a, i) => {
+    let bi = 0;
+    pts.forEach((p, k) => { if (p[i + 2] > pts[bi][i + 2]) bi = k; });
+    const px = X(pts[bi][0]), py = Y(pts[bi][i + 2]) - 6;
+    s += simText(Math.min(Math.max(px, l + 10), W - r - 10), Math.max(py, t + 8), `A${i + 1}`, { anchor: "middle", size: 8.5, fill: TA_COLS[i % TA_COLS.length], weight: 600 });
+  });
+  s += `<path d="M${X(c.wx).toFixed(1)},${(Y(c.worst) + 4).toFixed(1)} l-4,8 h8 z" fill="${SIM_C.far}"/>`;
+  s += `<line id="taCross" x1="0" y1="${t}" x2="0" y2="${H - b}" stroke="${SIM_C.text2}" stroke-width="0.8" visibility="hidden"/>
+    <circle id="taDot" r="4" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2" visibility="hidden"/>
+    <rect x="${l}" y="${t}" width="${W - l - r}" height="${H - t - b}" fill="transparent"
+      onpointermove="taHover(event)" onpointerdown="taHover(event)" onpointerleave="taHide()"/>`;
+  return `<div class="pl-title">沿線 RSRP · ${esc(plTeleName(c.t))} ${c.f} MHz · 粗線 = 服務電平（各天線最大值）</div>
+    <div class="pl-chart" id="taChart">${s}</svg><div class="pl-tip" id="taTip"></div></div>`;
+}
+
+function taHover(ev) {
+  if (!taState) return;
+  const svg = document.querySelector("#taChart svg").getBoundingClientRect();
+  const { c, L, X, Y, W, l, r, thr } = taState;
+  const vx = (ev.clientX - svg.left) / svg.width * W;
+  const x = Math.max(0, Math.min(L, (vx - l) / (W - l - r) * L));
+  const e = c.each(x), v = Math.max(...e), si = e.indexOf(v), cx = X(x);
+  const set = (id, a) => Object.entries(a).forEach(([k, val]) => document.getElementById(id).setAttribute(k, val));
+  set("taCross", { x1: cx, x2: cx, visibility: "visible" });
+  set("taDot", { cx, cy: Y(v), visibility: "visible" });
+  const tip = document.getElementById("taTip");
+  tip.innerHTML = `里程 <b>${fmtM(x)}</b><br>服務 A${si + 1} <b>${v.toFixed(1)} dBm</b>${v < thr ? " ⚠" : ""}<br>`
+    + e.map((u, i) => `<span style="color:${TA_COLS[i % TA_COLS.length]}">A${i + 1}</span> ${u.toFixed(1)}`).join(" · ");
+  tip.style.display = "block";
+  const px = cx / W * svg.width;
+  tip.style.left = `${Math.max(4, px > svg.width / 2 ? px - tip.offsetWidth - 10 : px + 10)}px`;
+}
+
+function taHide() {
+  ["taCross", "taDot"].forEach(id => document.getElementById(id)?.setAttribute("visibility", "hidden"));
+  const tip = document.getElementById("taTip");
   if (tip) tip.style.display = "none";
 }
 
