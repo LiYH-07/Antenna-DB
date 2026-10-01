@@ -384,12 +384,23 @@
   .calc-sub::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
   /* ── PATH LOSS CHART ── */
+  .pl-auto {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text2); line-height: 1.7;
+    margin: -2px 0 10px;
+  }
+  .pl-auto b { color: var(--heading); font-weight: 600; }
+  .pl-check {
+    display: flex; align-items: center; gap: 6px; margin: 0 0 6px;
+    font-size: 12px; color: var(--text2); cursor: pointer;
+  }
+  .pl-check input { accent-color: var(--blue); }
   .pl-sum {
     font-family: var(--font-mono); font-size: 10px; color: var(--text2); line-height: 1.7;
     background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px;
     padding: 7px 10px; margin-bottom: 8px;
   }
   .pl-sum b { color: var(--heading); font-weight: 600; }
+  .pl-sum .pl-k { display: inline-block; min-width: 54px; color: var(--text3); }
   .pl-title { font-family: var(--font-mono); font-size: 10px; color: var(--text2); margin-bottom: 6px; }
   .pl-chart { position: relative; max-width: 540px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
   .pl-chart svg { display: block; width: 100%; height: auto; touch-action: pan-y; }
@@ -608,76 +619,101 @@
           </div>
         </div>
         <div class="only-ground">
-          <div class="calc-sub">路徑損耗 · COST-231 Hata</div>
-          <div class="calc-row full">
+          <div class="calc-sub">頻譜 · 取自「電信頻寬」</div>
+          <div class="calc-row">
             <div class="calc-field">
-              <div class="calc-label">電信頻段 — 取自「電信頻寬」</div>
-              <select class="calc-select" id="plTele" onchange="plTeleChanged()">
-                <option value="">不指定（依天線頻段中心頻率）</option>
-              </select>
+              <div class="calc-label">電信業者</div>
+              <select class="calc-select" id="plOp" onchange="plOpChanged()"></select>
+            </div>
+            <div class="calc-field">
+              <div class="calc-label">LTE Band／頻段編號</div>
+              <select class="calc-select" id="plTele" onchange="plTeleChanged()"></select>
+            </div>
+          </div>
+          <div class="pl-auto" id="plAuto"></div>
+          <div class="calc-row full" id="plPrbRow">
+            <div class="calc-field">
+              <div class="calc-label">頻寬（未指定頻段時，用於換算 RS 功率）</div>
+              <select class="calc-select" id="plPrb" onchange="calcCoverage()"><option value="25">5 MHz · 25 PRB</option><option value="50" selected>10 MHz · 50 PRB</option><option value="75">15 MHz · 75 PRB</option><option value="100">20 MHz · 100 PRB</option></select>
+            </div>
+          </div>
+          <div class="calc-sub">發射端</div>
+          <div class="calc-row">
+            <div class="calc-field">
+              <div class="calc-label">每 Port 發射功率 (dBm)</div>
+              <input class="calc-input" type="number" id="plTx" value="46" step="1" oninput="calcCoverage()">
+            </div>
+            <div class="calc-field">
+              <div class="calc-label">MIMO 配置</div>
+              <select class="calc-select" id="plMimo" onchange="calcCoverage()"><option value="1">1：1 × Port（SISO）</option><option value="2" selected>2：2 × Port（2×2 MIMO）</option><option value="4">4：4 × Port（4×4 MIMO）</option><option value="8">8：8 × Port（8×8 MIMO）</option></select>
             </div>
           </div>
           <div class="calc-row">
-            <div class="calc-field">
-              <div class="calc-label">每 Port 功率 (dBm)</div>
-              <input class="calc-input" type="number" id="plTx" value="46" step="1" oninput="calcCoverage()">
-            </div>
             <div class="calc-field">
               <div class="calc-label">CRS Boost (dB)</div>
               <input class="calc-input" type="number" id="plBoost" value="0" step="0.5" oninput="calcCoverage()">
             </div>
-          </div>
-          <div class="calc-row full" id="plPrbRow">
             <div class="calc-field">
-              <div class="calc-label">頻寬（未指定電信頻段時用於換算 RS 功率）</div>
-              <select class="calc-select" id="plPrb" onchange="calcCoverage()">
-                <option value="25">5 MHz · 25 PRB</option>
-                <option value="50" selected>10 MHz · 50 PRB</option>
-                <option value="75">15 MHz · 75 PRB</option>
-                <option value="100">20 MHz · 100 PRB</option>
-              </select>
+              <div class="calc-label">其他附加損耗 (dB) — 合路器、跳線等</div>
+              <input class="calc-input" type="number" id="plCable" value="0" min="0" step="0.5" oninput="calcCoverage()">
             </div>
           </div>
+          <div class="calc-sub">Cable／Connector · 取自「單位損耗表」</div>
           <div class="calc-row">
             <div class="calc-field">
-              <div class="calc-label">環境</div>
-              <select class="calc-select" id="plEnv" onchange="calcCoverage()">
-                <option value="dense">大都會</option>
-                <option value="urban" selected>都市</option>
-                <option value="suburban">郊區</option>
-                <option value="rural">鄉村／空曠</option>
-              </select>
-            </div>
-            <div class="calc-field">
-              <div class="calc-label">RSRP 門檻 (dBm)</div>
-              <input class="calc-input" type="number" id="plThr" value="-105" step="1" oninput="calcCoverage()">
-            </div>
-          </div>
-          <div class="calc-sub">饋線損耗 · 取自「單位損耗表」</div>
-          <div class="calc-row">
-            <div class="calc-field">
-              <div class="calc-label">饋線類型</div>
+              <div class="calc-label">Cable 尺寸</div>
               <select class="calc-select" id="plCableType" onchange="calcCoverage()"></select>
             </div>
             <div class="calc-field">
-              <div class="calc-label">饋線長度 (m)</div>
+              <div class="calc-label">Cable 長度 (m)</div>
               <input class="calc-input" type="number" id="plCableLen" value="30" min="0" step="5" oninput="calcCoverage()">
             </div>
           </div>
           <div class="calc-row">
             <div class="calc-field">
-              <div class="calc-label">接頭數量</div>
+              <div class="calc-label">Connector 數量</div>
               <input class="calc-input" type="number" id="plConnN" value="4" min="0" step="1" oninput="calcCoverage()">
             </div>
             <div class="calc-field">
-              <div class="calc-label">每個接頭損耗</div>
-              <select class="calc-select" id="plConnLoss" onchange="calcCoverage()"></select>
+              <div class="calc-label">單一 Connector Loss (dB/個)</div>
+              <input class="calc-input" type="number" id="plConnLoss" value="0.1" min="0" step="0.05" oninput="syncChips('connChips','plConnLoss'); calcCoverage()">
+              <div class="veg-chips" id="connChips"></div>
             </div>
           </div>
+          <label class="pl-check"><input type="checkbox" id="plN78Feeder" onchange="calcCoverage()"> N78 使用 Cable／Connector（預設不使用：AAU 主動天線）</label>
+          <div class="calc-sub">傳播 · COST-231 Hata</div>
           <div class="calc-row full">
             <div class="calc-field">
-              <div class="calc-label">其他損耗 (dB) — 合路器、跳線等</div>
-              <input class="calc-input" type="number" id="plCable" value="0" min="0" step="0.5" oninput="calcCoverage()">
+              <div class="calc-label">環境</div>
+              <select class="calc-select" id="plEnv" onchange="calcCoverage()"><option value="dense">大都會</option><option value="urban" selected>都會</option><option value="suburban">郊區</option><option value="rural">開闊區</option></select>
+            </div>
+          </div>
+          <div class="calc-sub">用戶端</div>
+          <div class="calc-row full">
+            <div class="calc-field">
+              <div class="calc-label">穿透損耗 (dB) — 用戶位置</div>
+              <input class="calc-input" type="number" id="plPen" value="0" min="0" step="1" oninput="syncChips('penChips','plPen'); calcCoverage()">
+              <div class="veg-chips" id="penChips"><div class="hr-type-chip" data-v="0" onclick="setPen(0)">室外 0</div><div class="hr-type-chip" data-v="8" onclick="setPen(8)">汽車 8</div><div class="hr-type-chip" data-v="15" onclick="setPen(15)">室內 15</div><div class="hr-type-chip" data-v="25" onclick="setPen(25)">高鐵車廂 25</div></div>
+            </div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-field">
+              <div class="calc-label">人體損耗 (dB)</div>
+              <input class="calc-input" type="number" id="plBody" value="3" min="0" step="0.5" oninput="calcCoverage()">
+            </div>
+            <div class="calc-field">
+              <div class="calc-label">實測校正 (dB) — 實測 − 估算</div>
+              <input class="calc-input" type="number" id="plCal" value="0" step="0.5" oninput="calcCoverage()">
+            </div>
+          </div>
+          <div class="calc-row">
+            <div class="calc-field">
+              <div class="calc-label">涵蓋機率</div>
+              <select class="calc-select" id="plProb" onchange="calcCoverage()"><option value="0.5">50%（中位數）</option><option value="0.75">75%</option><option value="0.9" selected>90%</option><option value="0.95">95%</option></select>
+            </div>
+            <div class="calc-field">
+              <div class="calc-label">陰影衰落標準差 σ (dB)</div>
+              <input class="calc-input" type="number" id="plSigma" value="8" min="0" step="0.5" oninput="calcCoverage()">
             </div>
           </div>
           <div class="calc-sub">植被損耗 · 樹林區</div>
@@ -710,6 +746,13 @@
                 <option value="fitu-leaf">FITU-R 有葉</option>
                 <option value="fitu-bare">FITU-R 落葉</option>
               </select>
+            </div>
+          </div>
+          <div class="calc-sub">結果</div>
+          <div class="calc-row full">
+            <div class="calc-field">
+              <div class="calc-label">RSRP 門檻 (dBm)</div>
+              <input class="calc-input" type="number" id="plThr" value="-95" step="1" oninput="calcCoverage()">
             </div>
           </div>
         </div>
@@ -1518,11 +1561,17 @@ function parseLossRows(rows) {
     if (/Connector\s*項目/i.test(a)) { mode = "conn"; return; }
     if (!a) { mode = mode === "cable" ? "" : mode; return; }
     if (mode === "cable") {
-      const label = cellNum(a);                            // 「700 MHz Band」→ 700
-      let rep = cellNum(r[1]);                              // 代表頻率；讀不到時用頻段 +50
-      if (isNaN(rep)) rep = label + 50;
+      // 代表頻率可為單一頻率或範圍（「758-803 MHz」「2110 MHz – 2170 MHz」）
+      const nums = (String(r[1] ?? "").match(/\d+(\.\d+)?/g) || []).map(Number);
+      let lo = nums[0], hi = nums.length > 1 ? nums[1] : nums[0];
+      if (isNaN(lo) || lo === undefined) {                   // 讀不到時用頻段名稱（700 MHz Band → 700）
+        lo = hi = cellNum(a) + 50;
+        if (/n78/i.test(a)) { lo = 3300; hi = 3800; }
+      }
       const rates = cable.types.map((_, i) => cellNum(r[2 + i]));
-      if (!isNaN(rep) && rates.some(v => !isNaN(v))) cable.rows.push({ label: a, rep, rates });
+      if (!isNaN(lo) && rates.some(v => !isNaN(v))) {
+        cable.rows.push({ label: a, lo, hi, rep: (lo + hi) / 2, rates, active: /n78|5g/i.test(a) });
+      }
     } else if (mode === "conn") {
       const v = cellNum(r[1]);
       if (!isNaN(v)) conn.push({ name: a, loss: v });
@@ -1561,39 +1610,89 @@ const PL_DEFAULT = {
     {"tech": "5G", "duplex": "TDD", "band": "n78", "block": "", "op": "中華", "dlLo": 3420, "dlHi": 3510, "center": 3465, "prb": 245, "bw": 90},
     {"tech": "5G", "duplex": "TDD", "band": "n78", "block": "", "op": "台哥大", "dlLo": 3510, "dlHi": 3570, "center": 3540, "prb": 162, "bw": 60}
   ],
-  loss: {"cable": {"types": ["1/2 Cable", "7/8 Cable", "1-5/8 Cable"], "rows": [{"label": "700 MHz Band", "rep": 750, "rates": [3.5, 2, 1.1]}, {"label": "900 MHz Band", "rep": 950, "rates": [4, 2.3, 1.3]}, {"label": "1800 MHz Band", "rep": 1850, "rates": [5.8, 3.3, 1.9]}, {"label": "2100 MHz Band", "rep": 2150, "rates": [6.3, 3.6, 2.1]}, {"label": "2600 MHz Band", "rep": 2650, "rates": [7.1, 4.1, 2.4]}]}, "conn": [{"name": "一般 RF Connector", "loss": 0.1}, {"name": "Adapter／轉接頭", "loss": 0.1}, {"name": "Jumper 端點 Connector", "loss": 0.1}, {"name": "老化或施工品質不確定", "loss": 0.2}]},
+  loss: {
+    cable: {
+      types: ["1/2 Cable", "7/8 Cable", "1-5/8 Cable"],
+      rows: [
+        {"label": "700 MHz Band", "lo": 758, "hi": 803, "rep": 780.5, "rates": [3.5, 2, 1.1], "active": false},
+        {"label": "900 MHz Band", "lo": 930, "hi": 960, "rep": 945, "rates": [4, 2.3, 1.3], "active": false},
+        {"label": "1800 MHz Band", "lo": 1805, "hi": 1870, "rep": 1837.5, "rates": [5.8, 3.3, 1.9], "active": false},
+        {"label": "2100 MHz Band", "lo": 2110, "hi": 2170, "rep": 2140, "rates": [6.3, 3.6, 2.1], "active": false},
+        {"label": "2600 MHz Band", "lo": 2620, "hi": 2690, "rep": 2655, "rates": [7.1, 4.1, 2.4], "active": false},
+        {"label": "N78", "lo": 3300, "hi": 3800, "rep": 3550, "rates": [8.5, 4.8, 2.8], "active": true}
+      ],
+    },
+    conn: [{"name": "一般 RF Connector", "loss": 0.1}, {"name": "Adapter／轉接頭", "loss": 0.1}, {"name": "Jumper 端點 Connector", "loss": 0.1}, {"name": "老化或施工品質不確定", "loss": 0.2}],
+  },
 };
 let plData = null;   // { tele, teleSrc, cable, cableSrc, conn }
+let plBuiltFor = null;   // 頻段選單目前對應的天線
 
 const OP_ORDER = ["中華", "台哥大", "遠傳"];
+const PL_DEFAULT_OP = "中華";
 
-function plTeleLabel(t) {
-  return `${t.op} ${t.block || (t.tech === "5G" ? t.band : "Band " + t.band)} · DL ${t.dlLo}–${t.dlHi} MHz · ${t.bw} MHz`;
+// 頻段名稱：B8-B2、B3-C2、B1（無頻段編號）、n78
+function plTeleName(t) {
+  if (t.tech === "5G") return t.band + (t.block ? "-" + t.block : "");
+  return `B${t.band}${t.block ? "-" + t.block : ""}`;
 }
 
-// 依讀到的資料建立「電信頻段／饋線類型／接頭損耗」選單，保留原本的選擇
+function plTeleLabel(t) {
+  return `${t.op} ${plTeleName(t)} · DL ${t.dlLo}–${t.dlHi} MHz`;
+}
+
+const subOverlaps = (b, lo, hi) => parseFloat(b.SubBand_Low_MHz) <= hi && parseFloat(b.SubBand_High_MHz) >= lo;
+
+// 建立業者、Cable 尺寸、Connector 快選；保留原本的選擇
 function buildPlSelects() {
   if (!plData) {
     plData = { tele: PL_DEFAULT.tele, teleSrc: "default", cable: PL_DEFAULT.loss.cable, cableSrc: "default", conn: PL_DEFAULT.loss.conn };
   }
-  const tSel = document.getElementById("plTele"), prevT = tSel.value;
+  const oSel = document.getElementById("plOp"), prevO = oSel.value || PL_DEFAULT_OP;
   const ops = [...new Set(plData.tele.map(t => t.op))]
     .sort((a, b) => (OP_ORDER.indexOf(a) + 1 || 99) - (OP_ORDER.indexOf(b) + 1 || 99));
-  tSel.innerHTML = `<option value="">不指定（依天線頻段中心頻率）</option>` + ops.map(op =>
-    `<optgroup label="${esc(op)}">${plData.tele.map((t, i) => t.op === op
-      ? `<option value="${i}">${esc(plTeleLabel(t))}</option>` : "").join("")}</optgroup>`).join("");
-  if (prevT && plData.tele[prevT]) tSel.value = prevT;
+  oSel.innerHTML = ops.map(op => `<option value="${esc(op)}">${esc(op)}</option>`).join("");
+  oSel.value = ops.includes(prevO) ? prevO : ops[0];
 
   const cSel = document.getElementById("plCableType"), prevC = cSel.value;
   cSel.innerHTML = plData.cable.types.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join("")
-    + `<option value="-1">不使用饋線</option>`;
+    + `<option value="-1">不使用 Cable</option>`;
   cSel.value = prevC !== "" && cSel.querySelector(`option[value="${prevC}"]`) ? prevC : "0";
 
-  const kSel = document.getElementById("plConnLoss"), prevK = kSel.value;
-  kSel.innerHTML = plData.conn.map(c => `<option value="${c.loss}">${c.loss} dB · ${esc(c.name)}</option>`).join("");
-  if (prevK && kSel.querySelector(`option[value="${prevK}"]`)) kSel.value = prevK;
+  // Connector 快選：同一損耗值合併成一顆
+  const byVal = {};
+  plData.conn.forEach(c => { (byVal[c.loss] = byVal[c.loss] || []).push(c.name); });
+  document.getElementById("connChips").innerHTML = Object.keys(byVal).sort((a, b) => a - b).map(v =>
+    `<div class="hr-type-chip" data-v="${v}" title="${esc(byVal[v].join("、"))}" onclick="setChip('plConnLoss','connChips',${v})">${v} · ${esc(byVal[v][0].split(/[ ／]/)[0])}</div>`).join("");
+  syncChips("connChips", "plConnLoss");
+  syncChips("penChips", "plPen");
 
+  plBuiltFor = null;
+  buildPlBandSelect();
+}
+
+// 頻段選單：列出所選業者的頻段，天線沒涵蓋的停用
+function buildPlBandSelect() {
+  const tSel = document.getElementById("plTele"), prev = tSel.value;
+  const op = document.getElementById("plOp").value;
+  const ant = document.getElementById("calcAntenna").value;
+  const rows = bandData.filter(b => b.Antenna_Name === ant);
+  const covers = t => !rows.length || rows.some(b => subOverlaps(b, t.dlLo, t.dlHi));
+  const list = plData.tele.map((t, i) => ({ t, i })).filter(x => x.t.op === op);
+  tSel.innerHTML = list.map(({ t, i }) => {
+    const ok = covers(t);
+    return `<option value="${i}"${ok ? "" : " disabled"}>${esc(plTeleName(t))} · DL ${t.dlLo}–${t.dlHi} MHz${ok ? "" : "（天線未涵蓋）"}</option>`;
+  }).join("") + `<option value="">不指定（依天線頻段中心頻率）</option>`;
+  const keep = list.find(x => String(x.i) === prev && covers(x.t));
+  const first = list.find(x => covers(x.t));
+  tSel.value = keep ? prev : first ? String(first.i) : "";
+  plBuiltFor = ant;
   plTeleChanged(false);
+}
+
+function plOpChanged() {
+  buildPlBandSelect();
+  calcCoverage();
 }
 
 function plSelectedTele() {
@@ -1601,32 +1700,58 @@ function plSelectedTele() {
   return v !== "" && plData ? plData.tele[Number(v)] : null;
 }
 
+// 頻譜自動帶入：DL 中心頻率、頻寬、PRB
 function plTeleChanged(recalc = true) {
-  document.getElementById("plPrbRow").style.display = plSelectedTele() ? "none" : "";
+  const t = plSelectedTele();
+  document.getElementById("plPrbRow").style.display = t ? "none" : "";
+  document.getElementById("plAuto").innerHTML = t
+    ? `DL 中心頻率 <b>${t.center} MHz</b> · ${t.tech === "5G" ? "NR" : "LTE"} 頻寬 <b>${t.bw} MHz</b> · PRB <b>${t.prb}</b>${t.tech === "5G" ? "（SCS 30 kHz）" : ""} · ${esc(t.duplex)}`
+    : "未指定頻段：頻率取各天線頻段中心，PRB 依下方頻寬";
   if (recalc) calcCoverage();
 }
 
-// 饋線損耗 (dB/100 m)：取代表頻率最接近的一列；高於／低於表格範圍時依 √f 外推
+function syncChips(boxId, inputId) {
+  const v = numVal(inputId);
+  document.querySelectorAll(`#${boxId} .hr-type-chip`).forEach(c => c.classList.toggle("active", Number(c.dataset.v) === v));
+}
+
+function setChip(inputId, boxId, v) {
+  document.getElementById(inputId).value = v;
+  syncChips(boxId, inputId);
+  calcCoverage();
+}
+
+function setPen(v) { setChip("plPen", "penChips", v); }
+
+// Cable 單位損耗 (dB/100 m)：頻率落在哪一列的範圍就用哪一列；
+// 不在任何範圍內時取最近的一列，相差超過 300 MHz 則依 √f 外推
 function cableRate(f, typeIdx) {
   const rows = plData.cable.rows.filter(r => !isNaN(r.rates[typeIdx]));
   if (!rows.length) return { rate: NaN, extrap: false };
-  const lo = rows[0], hi = rows[rows.length - 1];
-  if (f > hi.rep + 300) return { rate: hi.rates[typeIdx] * Math.sqrt(f / hi.rep), extrap: true, ref: hi.rep };
-  if (f < lo.rep - 300) return { rate: lo.rates[typeIdx] * Math.sqrt(f / lo.rep), extrap: true, ref: lo.rep };
-  const near = rows.reduce((a, b) => Math.abs(b.rep - f) < Math.abs(a.rep - f) ? b : a);
-  return { rate: near.rates[typeIdx], extrap: false, ref: near.rep };
+  const hit = rows.find(r => f >= r.lo && f <= r.hi);
+  if (hit) return { rate: hit.rates[typeIdx], extrap: false, row: hit };
+  const gap = r => f < r.lo ? r.lo - f : f - r.hi;
+  const near = rows.reduce((a, b) => gap(b) < gap(a) ? b : a);
+  if (gap(near) > 300) return { rate: near.rates[typeIdx] * Math.sqrt(f / near.rep), extrap: true, row: near };
+  return { rate: near.rates[typeIdx], extrap: false, row: near };
+}
+
+// N78 多為 AAU 主動天線，沒有 Cable／Connector
+function isActiveBand(f) {
+  return plData.cable.rows.some(r => r.active && f >= r.lo && f <= r.hi) || (f >= 3300 && f <= 3800);
 }
 
 function feederLoss(f) {
   const type = Number(document.getElementById("plCableType").value);
   const len = Math.max(0, numVal("plCableLen") || 0);
   const n = Math.max(0, Math.round(numVal("plConnN") || 0));
-  const per = parseFloat(document.getElementById("plConnLoss").value) || 0;
+  const per = Math.max(0, numVal("plConnLoss") || 0);
   const other = Math.max(0, numVal("plCable") || 0);
-  const c = type >= 0 ? cableRate(f, type) : { rate: 0, extrap: false };
-  const cable = (c.rate || 0) * len / 100;
-  return { total: cable + n * per + other, cable, rate: c.rate, extrap: c.extrap, ref: c.ref,
-    type: type >= 0 ? plData.cable.types[type] : "", len, n, per, other };
+  const aau = isActiveBand(f) && !document.getElementById("plN78Feeder").checked;
+  const c = type >= 0 && !aau ? cableRate(f, type) : { rate: 0, extrap: false };
+  const cable = (c.rate || 0) * len / 100, conn = aau ? 0 : n * per;
+  return { total: cable + conn + other, cable, conn, rate: c.rate, extrap: c.extrap, ref: c.row?.label,
+    type: type >= 0 ? plData.cable.types[type] : "", len, n, per, other, aau };
 }
 
 // ═══════════════════════════════════════════════
@@ -1634,7 +1759,7 @@ function feederLoss(f) {
 // 接收電平 = 發射功率 − 饋線損耗 + 天線增益 − 垂直場型衰減 − 路徑損耗
 // ═══════════════════════════════════════════════
 
-const PL_ENV = { dense: "大都會", urban: "都市", suburban: "郊區", rural: "鄉村／空曠" };
+const PL_ENV = { dense: "大都會", urban: "都會", suburban: "郊區", rural: "開闊區" };
 
 // f: MHz、hb: 天線高度 m、hm: 用戶高度 m、dKm: 距離 km
 function hataLoss(f, hb, hm, dKm, env) {
@@ -1699,34 +1824,52 @@ function plVegSetting() {
 
 let plState = null;   // 目前圖表的資料，供 hover 使用
 
+// 最大涵蓋距離；50 m 以內只是塔下的模型外推值，不當成涵蓋距離
+const fmtRange = R => R <= 0 ? "—" : R < 0.05 ? "< 50 m" : fmtM(R * 1000);
+
+// 涵蓋機率 → 常態分佈 z 值（陰影衰落餘量 = z × σ）
+const PL_Z = { 0.5: 0, 0.75: 0.6745, 0.9: 1.2816, 0.95: 1.6449 };
+
 function renderPathLoss(data, antH, userH, tilt) {
   if (!plData) buildPlSelects();
+  if (plBuiltFor !== document.getElementById("calcAntenna").value) buildPlBandSelect();
   const all = data, calcIdxOf = d => all.indexOf(d);   // 篩選後仍對應計算器的頻段索引
   const port = numVal("plTx"), boost = numVal("plBoost") || 0, thr = numVal("plThr");
+  const mimo = Number(document.getElementById("plMimo").value) || 1;
+  const pen = Math.max(0, numVal("plPen") || 0), body = Math.max(0, numVal("plBody") || 0);
+  const cal = numVal("plCal") || 0;
+  const prob = Number(document.getElementById("plProb").value), sigma = Math.max(0, numVal("plSigma") || 0);
+  const margin = (PL_Z[prob] || 0) * sigma;
+  const pctTxt = `${Math.round(prob * 100)}%`;
   const vegSet = plVegSetting();
   const env = document.getElementById("plEnv").value;
   if (isNaN(port) || isNaN(thr)) return "";
   const hm = Math.max(userH, 0.5);
   const dh = antH - userH;
 
-  // RS 功率 = 每 Port 功率 − 10·log10(12 × PRB) + CRS Boost
+  // RS 功率 = 每 Port 功率 − 10·log10(12 × PRB) + CRS Boost（RSRP 以單一 Port 計，與 MIMO 埠數無關）
   const tele = plSelectedTele();
   const prb = tele ? tele.prb : Number(document.getElementById("plPrb").value);
   const rs = port - 10 * Math.log10(12 * prb) + boost;
 
-  // 指定電信頻段時，只算涵蓋該 DL 頻段的天線頻段，頻率用該頻段中心
+  // 指定電信頻段：天線增益只取一列——完整涵蓋 DL 頻段者優先，再取頻段最窄（最貼近）的一列
+  let gainNote = "";
   if (tele) {
-    data = data.filter(d => {
-      const lo = parseFloat(d.b.SubBand_Low_MHz), hi = parseFloat(d.b.SubBand_High_MHz);
-      return lo <= tele.dlHi && hi >= tele.dlLo;
-    });
-    if (!data.length) {
+    const cand = data.filter(d => subOverlaps(d.b, tele.dlLo, tele.dlHi));
+    if (!cand.length) {
       return `<div class="calc-result-label" style="margin-top:16px">路徑損耗</div>
         <div class="calc-warn">此天線沒有涵蓋 ${esc(plTeleLabel(tele))} 的頻段</div>`;
     }
+    const span = d => parseFloat(d.b.SubBand_High_MHz) - parseFloat(d.b.SubBand_Low_MHz);
+    const full = cand.filter(d => parseFloat(d.b.SubBand_Low_MHz) <= tele.dlLo && parseFloat(d.b.SubBand_High_MHz) >= tele.dlHi);
+    const pick = (full.length ? full : cand).reduce((a, b) => span(b) < span(a) ? b : a);
+    const others = cand.filter(d => d !== pick);
+    gainNote = `增益取 ${esc(pick.b.Band_ID || "—")} ${esc(pick.b.SubBand_Low_MHz)}–${esc(pick.b.SubBand_High_MHz)} MHz（${esc(pick.b.Gain_dBi || "—")} dBi）`
+      + (others.length ? `；另有 ${others.map(d => esc(`${d.b.Band_ID} ${d.b.SubBand_Low_MHz}–${d.b.SubBand_High_MHz}`)).join("、")} 也涵蓋此頻段` : "");
+    data = [pick];
   }
 
-  // 每個頻段的 RSRP 函式 (d: km)
+  // 每個頻段的 RSRP 函式 (d: km)：med = 中位數，prx = 涵蓋機率 RSRP（扣陰影餘量）
   const model = d => {
     const f = tele ? tele.center : plFreq(d.b), g = parseFloat(d.b.Gain_dBi) || 0;
     const veg = vegSet.at(f), fd = feederLoss(f);
@@ -1735,12 +1878,13 @@ function renderPathLoss(data, antH, userH, tilt) {
       at: dKm => {
         const loss = hataLoss(f, antH, hm, dKm, env);
         const att = vAtt(Math.atan2(dh, dKm * 1000) * 180 / Math.PI - tilt, d.vbw);
-        return { loss, att, veg, prx: rs - fd.total + g - att - loss - veg };
+        const med = rs - fd.total + g - att - loss - veg - pen - body + cal;
+        return { loss, att, veg, med, prx: med - margin };
       },
     };
   };
 
-  // 最遠仍 ≥ 門檻的距離（對數取樣 20 m ~ 50 km）
+  // 最遠仍 ≥ 門檻的距離（以涵蓋機率 RSRP 判斷；對數取樣 20 m ~ 50 km）
   const maxRange = at => {
     let best = 0;
     for (let i = 0; i <= 1200; i++) {
@@ -1754,8 +1898,9 @@ function renderPathLoss(data, antH, userH, tilt) {
   if (!models.length) return "";
   const cell = (m, distM) => {
     if (!isFinite(distM) || distM <= 0) return '<span class="calc-inf">—</span>';
-    const v = m.at(distM / 1000).prx;
-    return `<span class="${v >= thr ? "calc-near" : "rev-warn"}">${v.toFixed(1)}</span>`;
+    const v = m.at(distM / 1000);
+    return `<span class="${v.prx >= thr ? "calc-near" : "rev-warn"}">${v.prx.toFixed(1)}</span>`
+      + (margin ? `<br><span class="hr-sub">中位 ${v.med.toFixed(1)}</span>` : "");
   };
 
   const rows = models.map(({ d, m }) => {
@@ -1764,12 +1909,12 @@ function renderPathLoss(data, antH, userH, tilt) {
       <td><span class="band-pill band-${d.grp}">${esc(d.b.Band_ID || "—")}</span></td>
       <td>${Math.round(m.f)}<br><span class="hr-sub">${m.cost ? "COST-231" : "Okumura"}</span></td>
       <td>${m.g ? m.g : '<span class="rev-warn">無增益</span>'}</td>
-      <td>${m.fd.total.toFixed(1)}</td>
+      <td>${m.fd.total.toFixed(1)}${m.fd.aau ? '<br><span class="hr-sub">AAU</span>' : ""}</td>
       ${vegSet.label ? `<td>${m.veg.toFixed(1)}</td>` : ""}
       <td>${cell(m, d.near)}</td>
       <td>${cell(m, d.main)}</td>
       <td>${cell(m, d.far)}</td>
-      <td><b class="rev-tilt">${R > 0 ? fmtM(R * 1000) : "—"}</b></td>
+      <td><b class="rev-tilt">${fmtRange(R)}</b></td>
     </tr>`;
   }).join("");
 
@@ -1782,57 +1927,67 @@ function renderPathLoss(data, antH, userH, tilt) {
   warns.push("1 km 以內為模型外推");
   if (vegSet.warn) warns.push(vegSet.warn);
   const ex = models.filter(x => x.m.fd.extrap);
-  if (ex.length) warns.push(`${[...new Set(ex.map(x => Math.round(x.m.f)))].join("、")} MHz 不在單位損耗表內，饋線損耗以 ${ex[0].m.fd.ref} MHz 依 √f 外推`);
+  if (ex.length) warns.push(`${[...new Set(ex.map(x => Math.round(x.m.f)))].join("、")} MHz 不在單位損耗表內，Cable 損耗以「${ex[0].m.fd.ref}」依 √f 外推`);
   if (plData.cableSrc === "default" || plData.teleSrc === "default") warns.push("試算表的電信頻寬／單位損耗表讀取失敗，使用內建預設值");
 
   const sel = models.find(x => calcIdxOf(x.d) === calcSelIdx) || models[0];
   const selR = maxRange(sel.m.at);
   const fd = sel.m.fd;
+  const mainV = isFinite(sel.d.main) && sel.d.main > 0 ? sel.m.at(sel.d.main / 1000) : null;
+  const feederTxt = fd.aau
+    ? `N78 AAU 主動天線：不計 Cable／Connector ＋ 其他 ${fd.other} = <b>${fd.total.toFixed(2)} dB</b>`
+    : `${fd.type ? `${esc(fd.type)} ${fd.len} m × ${fd.rate.toFixed(1)} dB/100m${fd.extrap ? "（外推）" : ""} = ${fd.cable.toFixed(2)}` : "不使用 Cable 0"}
+        ＋ ${fd.n} × ${fd.per} Connector ＋ 其他 ${fd.other} = <b>${fd.total.toFixed(2)} dB</b>`;
   const summary = `
     <div class="pl-sum">
-      <div>RS 功率 = ${port} − 10·log10(12×${prb}) ${boost >= 0 ? "+" : "−"} ${Math.abs(boost)} = <b>${rs.toFixed(2)} dBm</b>
-        <span class="hr-sub">${tele ? esc(plTeleLabel(tele)) + ` · ${prb} PRB` : `${prb} PRB`}</span></div>
-      <div>饋線損耗（${Math.round(sel.m.f)} MHz）= ${fd.type
-        ? `${esc(fd.type)} ${fd.len} m × ${fd.rate.toFixed(1)} dB/100m${fd.extrap ? "（外推）" : ""} = ${fd.cable.toFixed(2)}` : "無饋線 0"}
-        ＋ ${fd.n} 接頭 × ${fd.per} ＋ 其他 ${fd.other} = <b>${fd.total.toFixed(2)} dB</b></div>
+      <div><span class="pl-k">頻譜</span>${tele ? esc(plTeleLabel(tele)) + ` · ${tele.bw} MHz` : "未指定頻段"} · ${prb} PRB</div>
+      <div><span class="pl-k">RS 功率</span>${port} − 10·log10(12×${prb}) ${boost >= 0 ? "+" : "−"} ${Math.abs(boost)} = <b>${rs.toFixed(2)} dBm</b></div>
+      <div><span class="pl-k">MIMO</span>${mimo} × Port，總發射功率 ${(port + 10 * Math.log10(mimo)).toFixed(1)} dBm
+        <span class="hr-sub">（RSRP 以單一 Port 計，不隨 MIMO 增加）</span></div>
+      <div><span class="pl-k">Cable</span>${Math.round(sel.m.f)} MHz：${feederTxt}</div>
+      ${gainNote ? `<div><span class="pl-k">天線</span>${gainNote}</div>` : ""}
+      <div><span class="pl-k">用戶端</span>穿透 ${pen} ＋ 人體 ${body} dB${cal ? `，實測校正 ${cal > 0 ? "+" : ""}${cal} dB` : ""}；
+        陰影餘量 ${(PL_Z[prob] || 0).toFixed(2)} × ${sigma} = <b>${margin.toFixed(1)} dB</b>（${pctTxt}）</div>
+      ${mainV ? `<div><span class="pl-k">主瓣落點</span>${fmtM(sel.d.main)}：中位數 <b>${mainV.med.toFixed(1)} dBm</b>
+        ${margin ? ` · ${pctTxt} 涵蓋 <b>${mainV.prx.toFixed(1)} dBm</b>` : ""}</div>` : ""}
     </div>`;
 
   return `
-    <div class="calc-result-label" style="margin-top:16px">路徑損耗 · ${PL_ENV[env]}${vegSet.label ? ` + ${vegSet.label}` : ""} · RSRP 門檻 ${thr} dBm</div>
+    <div class="calc-result-label" style="margin-top:16px">RSRP 估算 · ${PL_ENV[env]}${vegSet.label ? ` + ${vegSet.label}` : ""} · 門檻 ${thr} dBm · ${pctTxt}</div>
     ${summary}
-    ${renderPlChart(sel, thr, selR)}
+    ${renderPlChart(sel, thr, selR, margin ? pctTxt : "")}
     <div style="overflow-x:auto;margin:10px -14px 0;padding:0 14px 4px">
     <table class="calc-table" style="min-width:${vegSet.label ? 570 : 520}px">
       <thead><tr>
-        <th>Band</th><th>頻率 MHz</th><th>增益</th><th>饋線 dB</th>${vegSet.label ? "<th>植被 dB</th>" : ""}
+        <th>Band</th><th>頻率 MHz</th><th>增益</th><th>Cable dB</th>${vegSet.label ? "<th>植被 dB</th>" : ""}
         <th>近端 dBm</th><th>主瓣 dBm</th><th>遠端 dBm</th><th>最大涵蓋</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
     <div class="pl-warn">⚠ ${warns.join("；")}，結果僅供參考</div>
     <div style="margin-top:6px;font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
-      RSRP = RS 功率 − 饋線損耗 + 增益 − 垂直場型衰減 − L<sub>Hata</sub> − 植被損耗<br>
-      RS 功率 = 每 Port 功率 − 10·log10(12 × PRB) + CRS Boost；饋線損耗 = 單位損耗 × 長度 + 接頭數 × 每個接頭損耗 + 其他<br>
-      植被損耗：固定值（樹林區常用約 8–15 dB）或依樹林深度與頻率由模型計算，建議以實測校正<br>
-      指定電信頻段時，頻率取該頻段 DL 中心、PRB 取該頻段；5G 依 SCS 30 kHz 換算 PRB<br>
-      未計陰影衰落餘量、人體與建物穿透損耗
+      RSRP = RS 功率 − Cable 損耗 + 天線增益 − 場型衰減 − L<sub>Hata</sub> − 植被 − 穿透 − 人體 − 陰影餘量 + 實測校正<br>
+      RS 功率 = 每 Port 功率 − 10·log10(12 × PRB) + CRS Boost；Cable 損耗 = 單位損耗 × 長度 + Connector 數 × 單一損耗 + 其他<br>
+      表格與最大涵蓋以 ${pctTxt} 涵蓋機率 RSRP 判斷（陰影餘量 = z × σ）；小字為中位數<br>
+      穿透、人體損耗與 σ 為經驗值，建議以實測路測校正（填入「實測校正」）
     </div>`;
 }
 
-function renderPlChart(sel, thr, R) {
+function renderPlChart(sel, thr, R, pctTxt) {
   const { d, m } = sel;
   const W = 360, H = 210, l = 40, r = 12, t = 16, b = 30;
   const xMax = Math.min(30, Math.max(1.2, (R || 1) * 1.3, isFinite(d.far) ? d.far / 1000 * 1.2 : 0));
   const N = 240;
   const pts = [];
-  for (let i = 1; i <= N; i++) { const dk = xMax * i / N; pts.push([dk, m.at(dk).prx]); }
-  const vs = pts.map(p => p[1]);
+  for (let i = 1; i <= N; i++) { const dk = xMax * i / N; const v = m.at(dk); pts.push([dk, v.prx, v.med]); }
+  const vs = pts.flatMap(p => [p[1], p[2]]);
   const yTop = Math.ceil(Math.max(...vs, thr) / 10) * 10;
   const yBot = Math.floor(Math.min(...vs, thr - 10) / 10) * 10;
   const X = dk => l + dk / xMax * (W - l - r);
   const Y = v => t + (yTop - v) / (yTop - yBot) * (H - t - b);
   const col = SIM_C[d.grp];
-  plState = { at: m.at, xMax, X, Y, W, l, r, thr };
+  plState = { at: m.at, xMax, X, Y, W, l, r, thr, pctTxt };
+  const path = k => pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[k]).toFixed(1)}`).join("");
 
   let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
     aria-label="RSRP 對距離：${esc(d.b.Band_ID || "")}，最大涵蓋 ${R > 0 ? fmtM(R * 1000) : "無"}">`;
@@ -1861,12 +2016,20 @@ function renderPlChart(sel, thr, R) {
   s += `<line x1="${l}" y1="${Y(thr).toFixed(1)}" x2="${W - r}" y2="${Y(thr).toFixed(1)}" stroke="${SIM_C.text2}" stroke-width="1" stroke-dasharray="4 3"/>`;
   s += simText(W - r - 2, Y(thr) - 4, `門檻 ${thr}`, { anchor: "end", size: 8.5, fill: SIM_C.text2 });
 
-  // 接收電平曲線
-  s += `<path d="${pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("")}"
-    fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  // 中位數（虛線）與涵蓋機率 RSRP（實線）
+  if (pctTxt) {
+    s += `<path d="${path(2)}" fill="none" stroke="${col}" stroke-width="1.5" stroke-dasharray="5 3" stroke-opacity="0.55"/>`;
+  }
+  s += `<path d="${path(1)}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  if (pctTxt) {
+    s += `<line x1="${W - r - 112}" y1="${t + 6}" x2="${W - r - 98}" y2="${t + 6}" stroke="${col}" stroke-width="2"/>`;
+    s += simText(W - r - 95, t + 9, `${pctTxt} 涵蓋`, { size: 8.5, fill: SIM_C.text2 });
+    s += `<line x1="${W - r - 52}" y1="${t + 6}" x2="${W - r - 38}" y2="${t + 6}" stroke="${col}" stroke-width="1.5" stroke-dasharray="4 2" stroke-opacity="0.55"/>`;
+    s += simText(W - r - 35, t + 9, "中位數", { size: 8.5, fill: SIM_C.text2 });
+  }
 
   // 最大涵蓋距離
-  if (R > 0 && R <= xMax) {
+  if (R >= 0.05 && R <= xMax) {
     s += `<line x1="${X(R).toFixed(1)}" y1="${Y(thr).toFixed(1)}" x2="${X(R).toFixed(1)}" y2="${H - b}" stroke="${SIM_C.text2}" stroke-width="0.8" stroke-dasharray="2 2"/>`;
     s += `<circle cx="${X(R).toFixed(1)}" cy="${Y(thr).toFixed(1)}" r="4" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2"/>`;
     s += simText(X(R) - 6, Y(thr) + 14, `最大 ${fmtM(R * 1000)}`, { anchor: "end", size: 9, fill: SIM_C.heading, weight: 600 });
@@ -1898,7 +2061,7 @@ function plHover(ev) {
   if (!plState) return;
   const box = document.getElementById("plChart");
   const svg = box.querySelector("svg").getBoundingClientRect();
-  const { at, xMax, X, Y, W, l, r, thr } = plState;
+  const { at, xMax, X, Y, W, l, r, thr, pctTxt } = plState;
   const vx = (ev.clientX - svg.left) / svg.width * W;
   const dk = Math.max(xMax / 240, Math.min(xMax, (vx - l) / (W - l - r) * xMax));
   const v = at(dk);
@@ -1907,7 +2070,8 @@ function plHover(ev) {
   cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("visibility", "visible");
   dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.setAttribute("visibility", "visible");
   const tip = document.getElementById("plTip");
-  tip.innerHTML = `距離 <b>${fmtM(dk * 1000)}</b><br>RSRP <b>${v.prx.toFixed(1)} dBm</b>${v.prx < thr ? " ⚠" : ""}<br>
+  tip.innerHTML = `距離 <b>${fmtM(dk * 1000)}</b><br>RSRP${pctTxt ? ` ${pctTxt}` : ""} <b>${v.prx.toFixed(1)} dBm</b>${v.prx < thr ? " ⚠" : ""}
+    ${pctTxt ? `<br>中位數 ${v.med.toFixed(1)} dBm` : ""}<br>
     路損 ${v.loss.toFixed(1)} dB · 場型 −${v.att.toFixed(1)} dB${v.veg ? `<br>植被 −${v.veg.toFixed(1)} dB` : ""}`;
   tip.style.display = "block";
   const px = cx / W * svg.width;
