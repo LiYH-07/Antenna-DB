@@ -681,13 +681,37 @@
             </div>
           </div>
           <label class="pl-check"><input type="checkbox" id="plN78Feeder" onchange="calcCoverage()"> N78 使用 Cable／Connector（預設不使用：AAU 主動天線）</label>
-          <div class="calc-sub">傳播 · COST-231 Hata</div>
-          <div class="calc-row full">
+          <div class="calc-sub">傳播</div>
+          <div class="calc-row">
             <div class="calc-field">
+              <div class="calc-label">傳播模型</div>
+              <select class="calc-select" id="plModel" onchange="plModelChanged()">
+                <option value="hata">COST-231 Hata（Okumura-Hata）</option>
+                <option value="uma">3GPP 38.901 UMa（都會宏站）</option>
+                <option value="umi">3GPP 38.901 UMi（街道微站）</option>
+                <option value="rma">3GPP 38.901 RMa（郊外宏站）</option>
+              </select>
+            </div>
+            <div class="calc-field" id="plEnvField">
               <div class="calc-label">環境</div>
               <select class="calc-select" id="plEnv" onchange="calcCoverage()"><option value="dense">大都會</option><option value="urban" selected>都會</option><option value="suburban">郊區</option><option value="rural">開闊區</option></select>
             </div>
+            <div class="calc-field" id="plLosField" style="display:none">
+              <div class="calc-label">視距</div>
+              <select class="calc-select" id="plLos" onchange="plModelChanged()"><option value="nlos" selected>NLOS（非視距）</option><option value="los">LOS（視距）</option></select>
+            </div>
           </div>
+          <div class="calc-row" id="plRmaRow" style="display:none">
+            <div class="calc-field">
+              <div class="calc-label">平均建物高度 h (m)</div>
+              <input class="calc-input" type="number" id="plRmaH" value="5" min="5" max="50" step="1" oninput="calcCoverage()">
+            </div>
+            <div class="calc-field">
+              <div class="calc-label">街道寬度 W (m)</div>
+              <input class="calc-input" type="number" id="plRmaW" value="20" min="5" max="50" step="1" oninput="calcCoverage()">
+            </div>
+          </div>
+          <div class="pl-auto" id="plModelNote"></div>
           <div class="calc-sub">用戶端</div>
           <div class="calc-row full">
             <div class="calc-field">
@@ -1551,13 +1575,22 @@ function parseTeleRows(rows) {
   return out;
 }
 
+const CABLE_TYPES = ["1/2 Cable", "7/8 Cable", "1-5/8 Cable"];
+
 // 單位損耗表：饋線每 100 m 損耗（依頻段、線徑）與接頭損耗
+// 注意：Google 的 CSV 匯出會依一欄的多數型別判讀，少數型別的格子會變空白（例如數字欄的表頭文字）
 function parseLossRows(rows) {
   const cable = { types: [], rows: [] }, conn = [];
   let mode = "";
   rows.forEach(r => {
     const a = cellTxt(r[0]);
-    if (/頻率範圍/.test(a)) { mode = "cable"; cable.types = r.slice(2).map(cellTxt).filter(Boolean); return; }
+    if (/頻率範圍/.test(a)) {
+      // 線徑名稱去掉單位（「1/2 Cable /100m (dB)」→「1/2 Cable」）；表頭被清空時用預設名稱
+      mode = "cable";
+      cable.types = CABLE_TYPES.map((def, i) =>
+        cellTxt(r[2 + i]).replace(/\/?\s*100\s*m.*$/i, "").replace(/\(dB.*\)/i, "").trim() || def);
+      return;
+    }
     if (/Connector\s*項目/i.test(a)) { mode = "conn"; return; }
     if (!a) { mode = mode === "cable" ? "" : mode; return; }
     if (mode === "cable") {
@@ -1573,7 +1606,7 @@ function parseLossRows(rows) {
         cable.rows.push({ label: a, lo, hi, rep: (lo + hi) / 2, rates, active: /n78|5g/i.test(a) });
       }
     } else if (mode === "conn") {
-      const v = cellNum(r[1]);
+      const v = isNaN(cellNum(r[1])) ? cellNum(r[2]) : cellNum(r[1]);   // B 欄或 C 欄
       if (!isNaN(v)) conn.push({ name: a, loss: v });
       else if (/RS Power/i.test(a)) mode = "";
     }
@@ -1755,6 +1788,99 @@ function feederLoss(f) {
 }
 
 // ═══════════════════════════════════════════════
+// 3GPP TR 38.901 路徑損耗（Table 7.4.1-1）：UMa、UMi-Street Canyon、RMa
+// fc 單位 GHz；d2D、d3D、高度單位 m；NLOS = max(LOS, NLOS')
+// ═══════════════════════════════════════════════
+const PL_MODELS = {
+  hata: { name: "COST-231 Hata", sigma: { los: 8, nlos: 8 } },
+  uma:  { name: "38.901 UMa",    sigma: { los: 4, nlos: 6 },    d2d: [10, 5000],  hut: [1.5, 22.5], hbs: 25 },
+  umi:  { name: "38.901 UMi",    sigma: { los: 4, nlos: 7.82 }, d2d: [10, 5000],  hut: [1.5, 22.5], hbs: 10 },
+  rma:  { name: "38.901 RMa",    sigma: { los: 4, nlos: 8 },    d2d: [10, 10000], hut: [1, 10],     hbs: 35, hbsRange: [10, 150] },
+};
+
+function pl38901(kind, los, fMHz, hBS, hUT, d2D, h = 5, W = 20) {
+  const fc = fMHz / 1000, lg = Math.log10, c = 3e8;
+  const d3D = Math.hypot(d2D, hBS - hUT);
+  if (kind === "uma" || kind === "umi") {
+    const hE = 1;                                          // 有效環境高度（簡化取 1 m）
+    const dBP = 4 * Math.max(hBS - hE, 0) * Math.max(hUT - hE, 0) * fc * 1e9 / c;
+    const [a, b, k] = kind === "uma" ? [28.0, 22, 9] : [32.4, 21, 9.5];
+    const losPL = d2D <= dBP
+      ? a + b * lg(d3D) + 20 * lg(fc)
+      : a + 40 * lg(d3D) + 20 * lg(fc) - k * lg(dBP ** 2 + (hBS - hUT) ** 2);
+    if (los) return losPL;
+    const nlos = kind === "uma"
+      ? 13.54 + 39.08 * lg(d3D) + 20 * lg(fc) - 0.6 * (hUT - 1.5)
+      : 22.4 + 35.3 * lg(d3D) + 21.3 * lg(fc) - 0.3 * (hUT - 1.5);
+    return Math.max(losPL, nlos);
+  }
+  // RMa：h = 平均建物高度、W = 街道寬度
+  const dBP = 2 * Math.PI * hBS * hUT * fc * 1e9 / c;
+  const pl1 = d => 20 * lg(40 * Math.PI * d * fc / 3) + Math.min(0.03 * h ** 1.72, 10) * lg(d)
+    - Math.min(0.044 * h ** 1.72, 14.77) + 0.002 * lg(h) * d;
+  const losPL = d2D <= dBP ? pl1(d3D) : pl1(dBP) + 40 * lg(d3D / dBP);
+  if (los) return losPL;
+  const nlos = 161.04 - 7.1 * lg(W) + 7.5 * lg(h) - (24.37 - 3.7 * (h / hBS) ** 2) * lg(hBS)
+    + (43.42 - 3.1 * lg(hBS)) * (lg(d3D) - 3) + 20 * lg(fc) - (3.2 * lg(11.75 * hUT) ** 2 - 4.97);
+  return Math.max(losPL, nlos);
+}
+
+// 傳播模型設定：切換時顯示對應欄位，σ 帶入該模型建議值（仍可手動修改）
+const PL_MODEL_NOTE = {
+  hata: "適用 150–2000 MHz、天線 30–200 m、用戶 1–10 m、距離 1–20 km",
+  uma: "適用 0.5–100 GHz、距離 10 m–5 km、用戶 1.5–22.5 m；典型天線高 25 m",
+  umi: "適用 0.5–100 GHz、距離 10 m–5 km、用戶 1.5–22.5 m；典型天線高 10 m",
+  rma: "適用 0.5–30 GHz、天線 10–150 m（典型 35 m）、用戶 1–10 m、距離 10 m–10 km（NLOS 至 5 km）",
+};
+
+function plModelChanged(recalc = true) {
+  const kind = document.getElementById("plModel").value, los = document.getElementById("plLos").value === "los";
+  document.getElementById("plEnvField").style.display = kind === "hata" ? "" : "none";
+  document.getElementById("plLosField").style.display = kind === "hata" ? "none" : "";
+  document.getElementById("plRmaRow").style.display = kind === "rma" ? "" : "none";
+  const sig = PL_MODELS[kind].sigma[los ? "los" : "nlos"];
+  document.getElementById("plSigma").value = sig;
+  document.getElementById("plModelNote").innerHTML = `${PL_MODEL_NOTE[kind]}；陰影標準差建議 <b>${sig} dB</b>`;
+  if (recalc) calcCoverage();
+}
+
+// 目前選定的傳播模型：at(fMHz, hBS, hUT, dKm) → 路徑損耗 dB
+function plModelSetting(antH, userH) {
+  const kind = document.getElementById("plModel").value;
+  const los = kind !== "hata" && document.getElementById("plLos").value === "los";
+  const env = document.getElementById("plEnv").value;
+  const M = PL_MODELS[kind];
+  if (kind === "hata") {
+    const hm = Math.max(userH, 0.5);
+    const warns = fs => {
+      const w = [];
+      if (fs.some(f => f < 150 || f > 2000)) w.push(`頻率超出 150–2000 MHz（${fs.filter(f => f < 150 || f > 2000).map(Math.round).join("、")} MHz 為外推）`);
+      if (antH < 30 || antH > 200) w.push("天線高度超出 30–200 m");
+      if (userH < 1 || userH > 10) w.push("用戶高度超出 1–10 m");
+      w.push("1 km 以內為模型外推");
+      return w;
+    };
+    return { kind, label: `Hata · ${PL_ENV[env]}`, tag: f => f > 1500 ? "COST-231" : "Okumura",
+      at: (f, dKm) => hataLoss(f, antH, hm, dKm, env), zone: [1, 20], warns };
+  }
+  const hUT = Math.max(userH, 1), h = numVal("plRmaH") || 5, W = numVal("plRmaW") || 20;
+  const losTxt = los ? "LOS" : "NLOS";
+  const dMax = kind === "rma" && !los ? 5000 : M.d2d[1];
+  const warns = fs => {
+    const w = [];
+    if (userH < M.hut[0] || userH > M.hut[1]) w.push(`用戶高度超出 ${M.hut[0]}–${M.hut[1]} m`);
+    if (M.hbsRange && (antH < M.hbsRange[0] || antH > M.hbsRange[1])) w.push(`天線高度超出 ${M.hbsRange[0]}–${M.hbsRange[1]} m`);
+    if (kind === "rma" && fs.some(f => f > 30000)) w.push("RMa 頻率超出 30 GHz");
+    w.push(`距離 10 m–${fmtM(dMax)} 以外為模型外推`);
+    if (Math.abs(antH - M.hbs) > M.hbs * 0.5) w.push(`${M.name} 典型天線高 ${M.hbs} m，目前 ${antH} m`);
+    return w;
+  };
+  return { kind, label: `${M.name} ${losTxt}`, tag: () => `${kind.toUpperCase()} ${losTxt}`,
+    at: (f, dKm) => pl38901(kind, los, f, antH, hUT, Math.max(dKm * 1000, 1), h, W),
+    zone: [0.01, dMax / 1000], warns };
+}
+
+// ═══════════════════════════════════════════════
 // 路徑損耗：Okumura-Hata（150–1500 MHz）／COST-231 Hata（1500–2000 MHz）
 // 接收電平 = 發射功率 − 饋線損耗 + 天線增益 − 垂直場型衰減 − 路徑損耗
 // ═══════════════════════════════════════════════
@@ -1842,9 +1968,8 @@ function renderPathLoss(data, antH, userH, tilt) {
   const margin = (PL_Z[prob] || 0) * sigma;
   const pctTxt = `${Math.round(prob * 100)}%`;
   const vegSet = plVegSetting();
-  const env = document.getElementById("plEnv").value;
+  const pm = plModelSetting(antH, userH);
   if (isNaN(port) || isNaN(thr)) return "";
-  const hm = Math.max(userH, 0.5);
   const dh = antH - userH;
 
   // RS 功率 = 每 Port 功率 − 10·log10(12 × PRB) + CRS Boost（RSRP 以單一 Port 計，與 MIMO 埠數無關）
@@ -1874,9 +1999,9 @@ function renderPathLoss(data, antH, userH, tilt) {
     const f = tele ? tele.center : plFreq(d.b), g = parseFloat(d.b.Gain_dBi) || 0;
     const veg = vegSet.at(f), fd = feederLoss(f);
     return {
-      f, g, veg, fd, cost: f > 1500,
+      f, g, veg, fd, tag: pm.tag(f),
       at: dKm => {
-        const loss = hataLoss(f, antH, hm, dKm, env);
+        const loss = pm.at(f, dKm);
         const att = vAtt(Math.atan2(dh, dKm * 1000) * 180 / Math.PI - tilt, d.vbw);
         const med = rs - fd.total + g - att - loss - veg - pen - body + cal;
         return { loss, att, veg, med, prx: med - margin };
@@ -1907,7 +2032,7 @@ function renderPathLoss(data, antH, userH, tilt) {
     const i = calcIdxOf(d), R = maxRange(m.at);
     return `<tr class="${i === calcSelIdx ? "sel" : ""}" onclick="selectCalcBand(${i})">
       <td><span class="band-pill band-${d.grp}">${esc(d.b.Band_ID || "—")}</span></td>
-      <td>${Math.round(m.f)}<br><span class="hr-sub">${m.cost ? "COST-231" : "Okumura"}</span></td>
+      <td>${Math.round(m.f)}<br><span class="hr-sub">${m.tag}</span></td>
       <td>${m.g ? m.g : '<span class="rev-warn">無增益</span>'}</td>
       <td>${m.fd.total.toFixed(1)}${m.fd.aau ? '<br><span class="hr-sub">AAU</span>' : ""}</td>
       ${vegSet.label ? `<td>${m.veg.toFixed(1)}</td>` : ""}
@@ -1919,12 +2044,7 @@ function renderPathLoss(data, antH, userH, tilt) {
   }).join("");
 
   // 適用範圍檢查
-  const warns = [];
-  const fs = models.map(x => x.m.f);
-  if (fs.some(f => f < 150 || f > 2000)) warns.push(`頻率超出 150–2000 MHz（${fs.filter(f => f < 150 || f > 2000).map(Math.round).join("、")} MHz 為外推）`);
-  if (antH < 30 || antH > 200) warns.push("天線高度超出 30–200 m");
-  if (userH < 1 || userH > 10) warns.push("用戶高度超出 1–10 m");
-  warns.push("1 km 以內為模型外推");
+  const warns = pm.warns(models.map(x => x.m.f));
   if (vegSet.warn) warns.push(vegSet.warn);
   const ex = models.filter(x => x.m.fd.extrap);
   if (ex.length) warns.push(`${[...new Set(ex.map(x => Math.round(x.m.f)))].join("、")} MHz 不在單位損耗表內，Cable 損耗以「${ex[0].m.fd.ref}」依 √f 外推`);
@@ -1953,9 +2073,9 @@ function renderPathLoss(data, antH, userH, tilt) {
     </div>`;
 
   return `
-    <div class="calc-result-label" style="margin-top:16px">RSRP 估算 · ${PL_ENV[env]}${vegSet.label ? ` + ${vegSet.label}` : ""} · 門檻 ${thr} dBm · ${pctTxt}</div>
+    <div class="calc-result-label" style="margin-top:16px">RSRP 估算 · ${pm.label}${vegSet.label ? ` + ${vegSet.label}` : ""} · 門檻 ${thr} dBm · ${pctTxt}</div>
     ${summary}
-    ${renderPlChart(sel, thr, selR, margin ? pctTxt : "")}
+    ${renderPlChart(sel, thr, selR, margin ? pctTxt : "", pm.zone)}
     <div style="overflow-x:auto;margin:10px -14px 0;padding:0 14px 4px">
     <table class="calc-table" style="min-width:${vegSet.label ? 570 : 520}px">
       <thead><tr>
@@ -1966,14 +2086,14 @@ function renderPathLoss(data, antH, userH, tilt) {
     </table></div>
     <div class="pl-warn">⚠ ${warns.join("；")}，結果僅供參考</div>
     <div style="margin-top:6px;font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
-      RSRP = RS 功率 − Cable 損耗 + 天線增益 − 場型衰減 − L<sub>Hata</sub> − 植被 − 穿透 − 人體 − 陰影餘量 + 實測校正<br>
+      RSRP = RS 功率 − Cable 損耗 + 天線增益 − 場型衰減 − 路徑損耗（${esc(pm.label)}）− 植被 − 穿透 − 人體 − 陰影餘量 + 實測校正<br>
       RS 功率 = 每 Port 功率 − 10·log10(12 × PRB) + CRS Boost；Cable 損耗 = 單位損耗 × 長度 + Connector 數 × 單一損耗 + 其他<br>
       表格與最大涵蓋以 ${pctTxt} 涵蓋機率 RSRP 判斷（陰影餘量 = z × σ）；小字為中位數<br>
       穿透、人體損耗與 σ 為經驗值，建議以實測路測校正（填入「實測校正」）
     </div>`;
 }
 
-function renderPlChart(sel, thr, R, pctTxt) {
+function renderPlChart(sel, thr, R, pctTxt, zone = [1, 20]) {
   const { d, m } = sel;
   const W = 360, H = 210, l = 40, r = 12, t = 16, b = 30;
   const xMax = Math.min(30, Math.max(1.2, (R || 1) * 1.3, isFinite(d.far) ? d.far / 1000 * 1.2 : 0));
@@ -1992,10 +2112,14 @@ function renderPlChart(sel, thr, R, pctTxt) {
   let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
     aria-label="RSRP 對距離：${esc(d.b.Band_ID || "")}，最大涵蓋 ${R > 0 ? fmtM(R * 1000) : "無"}">`;
 
-  // 1 km 以內：模型外推區
-  const x1 = X(Math.min(1, xMax));
-  s += `<rect x="${l}" y="${t}" width="${(x1 - l).toFixed(1)}" height="${H - t - b}" fill="${SIM_C.soil2}" fill-opacity="0.45"/>`;
-  s += simText(l + 4, t + 10, "外推", { size: 8.5, fill: SIM_C.text3 });
+  // 模型適用距離以外：外推區（Hata 1 km 以內；38.901 超過 5／10 km）
+  const shade = (a, z) => {
+    if (z - a <= xMax * 0.01) return;
+    s += `<rect x="${X(a).toFixed(1)}" y="${t}" width="${(X(z) - X(a)).toFixed(1)}" height="${H - t - b}" fill="${SIM_C.soil2}" fill-opacity="0.45"/>`;
+    s += simText(X(a) + 4, t + 10, "外推", { size: 8.5, fill: SIM_C.text3 });
+  };
+  shade(0, Math.min(zone[0], xMax));
+  if (zone[1] < xMax) shade(zone[1], xMax);
 
   // 格線與 Y 軸
   const yStep = (yTop - yBot) / 10 > 7 ? 20 : 10;
@@ -3019,6 +3143,8 @@ function dismissBanner() {
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
+
+plModelChanged(false);
 
 document.getElementById("filterRow").addEventListener("click", e => {
   const chip = e.target.closest(".filter-chip");
