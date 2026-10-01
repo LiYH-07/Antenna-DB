@@ -655,11 +655,7 @@
           </div>
           <div class="calc-row">
             <div class="calc-field">
-              <div class="calc-label">耦合損耗</div>
-              <select class="calc-select" id="lkCov" onchange="calcCoverage()"><option value="95" selected>95%（設計值）</option><option value="50">50%（中位數）</option></select>
-            </div>
-            <div class="calc-field">
-              <div class="calc-label">規格範圍取值</div>
+              <div class="calc-label">規格範圍取值（耦合損耗 95%、50% 同時計算）</div>
               <select class="calc-select" id="lkPick" onchange="calcCoverage()"><option value="mid" selected>中間值</option><option value="max">上限（保守）</option></select>
             </div>
           </div>
@@ -2296,7 +2292,7 @@ function plHide() {
 //          − 20·log10(d / 2 m) − 穿透 − 人體 + 實測校正
 // 規格解析自 Antenna_Band_Spec 的 Notes，例如
 //   「Attenuation 2.1~2.2 dB/100m; coupling loss (2 m) 50% 78~79 dB, 95% 88~89 dB」
-// 耦合損耗依 IEC 61196-4 於 2 m 距離量測；95% 值已含沿線位置變異，不另扣陰影餘量
+// 耦合損耗依 IEC 61196-4 於 2 m 距離量測；95%（設計值）與 50%（中位數）同時計算
 // ═══════════════════════════════════════════════
 const LK_CUSTOM = "__custom";
 
@@ -2326,19 +2322,16 @@ function renderLeaky(ant) {
   const rows = custom ? [] : leakyRows(ant);
   if (!custom && !rows.length) return `<div class="calc-warn">此電纜在 Antenna_Band_Spec 沒有可解析的衰減／耦合損耗備註</div>`;
 
-  const pick = document.getElementById("lkPick").value, cov = document.getElementById("lkCov").value;
+  const pick = document.getElementById("lkPick").value;
   const take = r => pick === "max" ? r[1] : (r[0] + r[1]) / 2;
   const fmtR = r => r[0] === r[1] ? `${r[0]}` : `${r[0]}~${r[1]}`;
   // 某頻率的電纜規格：落在哪一列的頻段就用哪一列，否則取最近一列並標示
   const specAt = f => {
-    if (custom) {
-      return { att: numVal("lkAtt"), cl: numVal(cov === "95" ? "lkCl95" : "lkCl50"), src: "自訂", out: false };
-    }
+    if (custom) return { att: numVal("lkAtt"), cl95: numVal("lkCl95"), cl50: numVal("lkCl50"), src: "", out: false };
     const gap = r => f < r.lo ? r.lo - f : f > r.hi ? f - r.hi : 0;
     const r = rows.reduce((a, b) => gap(b) < gap(a) ? b : a);
-    const clR = cov === "95" ? r.c95 : r.c50;
-    return { att: take(r.att), cl: take(clR), out: gap(r) > 0, grp: bandGroup(r.b.Band_ID),
-      src: `${r.lo}–${r.hi} MHz：衰減 ${fmtR(r.att)} dB/100m、耦合 ${cov}% ${fmtR(clR)} dB` };
+    return { att: take(r.att), cl95: take(r.c95), cl50: take(r.c50), out: gap(r) > 0, grp: bandGroup(r.b.Band_ID),
+      src: `${r.lo}–${r.hi} MHz：衰減 ${fmtR(r.att)} dB/100m、耦合 95% ${fmtR(r.c95)}、50% ${fmtR(r.c50)} dB` };
   };
 
   const L = Math.max(1, numVal("lkLen") || 0), two = document.getElementById("lkFeed").value === "two";
@@ -2349,17 +2342,22 @@ function renderLeaky(ant) {
   const pen = Math.max(0, numVal("plPen") || 0), body = Math.max(0, numVal("plBody") || 0), cal = numVal("plCal") || 0;
   if (isNaN(port) || isNaN(thr)) return "";
 
+  // 一個頻段的沿線 RSRP；at95 = 95% 耦合損耗（設計值），at50 = 50%（中位數）
   const budget = t => {
     const f = t.center, sp = specAt(f);
-    if (isNaN(sp.att) || isNaN(sp.cl)) return null;
+    if ([sp.att, sp.cl95, sp.cl50].some(isNaN)) return null;
     const rs = port - 10 * Math.log10(12 * t.prb) + boost, fd = feederLoss(f);
-    const base = rs - fd.total - sp.cl - dCorr - pen - body + cal;     // 饋入點旁（x = 0）的單端 RSRP
-    const one = x => base - sp.att * x / 100;
-    const at = x => two ? 10 * Math.log10(10 ** (one(x) / 10) + 10 ** (one(L - x) / 10)) : one(x);
-    let ok = 0;
-    for (let i = 0; i <= 200; i++) if (at(L * i / 200) >= thr) ok++;
-    return { t, f, sp, rs, fd, base, at, worst: two ? at(L / 2) : at(L),
-      maxOne: Math.max(0, (base - thr) / sp.att * 100), frac: ok / 201 };
+    const head = rs - fd.total - dCorr - pen - body + cal;              // 尚未扣耦合損耗與縱向衰減
+    const line = cl => {
+      const base = head - cl;                                          // 饋入點旁（x = 0）的單端 RSRP
+      const one = x => base - sp.att * x / 100;
+      const at = x => two ? 10 * Math.log10(10 ** (one(x) / 10) + 10 ** (one(L - x) / 10)) : one(x);
+      let ok = 0;
+      for (let i = 0; i <= 200; i++) if (at(L * i / 200) >= thr) ok++;
+      return { at, worst: two ? at(L / 2) : at(L), maxOne: Math.max(0, (base - thr) / sp.att * 100), frac: ok / 201 };
+    };
+    const p95 = line(sp.cl95), p50 = line(sp.cl50);
+    return { t, f, sp, rs, fd, p95, p50, at: p95.at, at50: p50.at, worst: p95.worst };
   };
 
   const tele = plSelectedTele();
@@ -2367,20 +2365,21 @@ function renderLeaky(ant) {
   const cur = budget(tele);
   if (!cur) return `<div class="calc-warn">請輸入電纜的衰減與耦合損耗</div>`;
 
-  // 同業者、電纜涵蓋的頻段一覽
+  // 同業者、電纜涵蓋的頻段一覽（每格上面 95%，下面 50%）
   const op = document.getElementById("plOp").value;
   const list = plData.tele.filter(t => t.op === op && (custom || rows.some(r => t.dlLo <= r.hi && t.dlHi >= r.lo)))
     .map(budget).filter(Boolean);
-  const cls = v => v >= thr ? "calc-near" : "rev-warn";
+  const v2 = (a, b) => `<span class="${a >= thr ? "calc-near" : "rev-warn"}">${a.toFixed(1)}</span><br><span class="hr-sub">50% ${b.toFixed(1)}</span>`;
+  const len2 = (a, b) => `<b class="rev-tilt">${a > 0 ? fmtM(a) : "—"}</b><br><span class="hr-sub">50% ${b > 0 ? fmtM(b) : "—"}</span>`;
   const tRows = list.map(c => `<tr class="${c.t === tele ? "sel" : ""}">
       <td>${esc(plTeleName(c.t))}</td>
       <td>${c.f}</td>
       <td>${c.sp.att.toFixed(2)}</td>
-      <td>${c.sp.cl.toFixed(1)}</td>
-      <td><span class="${cls(c.at(0))}">${c.at(0).toFixed(1)}</span></td>
-      <td><span class="${cls(c.worst)}">${c.worst.toFixed(1)}</span></td>
-      <td>${Math.round(c.frac * 100)}%</td>
-      <td><b class="rev-tilt">${c.maxOne > 0 ? fmtM(c.maxOne) : "—"}</b></td>
+      <td>${c.sp.cl95.toFixed(1)}<br><span class="hr-sub">50% ${c.sp.cl50.toFixed(1)}</span></td>
+      <td>${v2(c.p95.at(0), c.p50.at(0))}</td>
+      <td>${v2(c.p95.worst, c.p50.worst)}</td>
+      <td>${Math.round(c.p95.frac * 100)}%<br><span class="hr-sub">50% ${Math.round(c.p50.frac * 100)}%</span></td>
+      <td>${len2(c.p95.maxOne, c.p50.maxOne)}</td>
     </tr>`).join("");
 
   const fd = cur.fd;
@@ -2389,8 +2388,9 @@ function renderLeaky(ant) {
   const warns = [];
   if (cur.sp.out) warns.push(`${cur.f} MHz 不在電纜規格頻段內，取最近一列`);
   if (cur.f > 2700) warns.push("超出此類漏波電纜 50–2700 MHz 的工作頻段");
-  warns.push(`耦合損耗為 2 m 量測值；${cov === "95" ? "95% 值已含沿線位置變異，未另扣陰影餘量" : "50% 為中位數，實際約一半位置更差"}`);
+  warns.push("耦合損耗為 2 m 量測值；95% 為設計值（沿線 95% 位置優於此值），50% 為中位數，兩者都未另扣陰影餘量");
   warns.push("車廂穿透、人體損耗為經驗值，建議以車上實測校正");
+  const lenTxt = v => v > 0 ? fmtM(v) : "0";
 
   return `
     <div class="calc-result-label">漏波電纜 RSRP · ${esc(plTeleLabel(tele))} · 門檻 ${thr} dBm</div>
@@ -2399,20 +2399,22 @@ function renderLeaky(ant) {
       <div><span class="pl-k">RS 功率</span>${port} − 10·log10(12×${tele.prb}) ${boost >= 0 ? "+" : "−"} ${Math.abs(boost)} = <b>${cur.rs.toFixed(2)} dBm</b></div>
       <div><span class="pl-k">饋入</span>${feederTxt}</div>
       <div><span class="pl-k">電纜</span>${custom ? "自訂" : `${esc(ant)}：${esc(cur.sp.src)} → 取${pick === "max" ? "上限" : "中間值"}`}
-        衰減 <b>${cur.sp.att.toFixed(2)} dB/100m</b>、耦合 ${cov}% <b>${cur.sp.cl.toFixed(1)} dB</b></div>
+        衰減 <b>${cur.sp.att.toFixed(2)} dB/100m</b>、耦合 95% <b>${cur.sp.cl95.toFixed(1)}</b>／50% <b>${cur.sp.cl50.toFixed(1)} dB</b></div>
       <div><span class="pl-k">距離</span>√(${dx}² + ${Math.abs(dh).toFixed(1)}²) = ${d.toFixed(2)} m → 20·log10(d/2) = <b>${dCorr >= 0 ? "+" : ""}${dCorr.toFixed(1)} dB</b></div>
       <div><span class="pl-k">用戶端</span>穿透 ${pen} ＋ 人體 ${body} dB${cal ? `，實測校正 ${cal > 0 ? "+" : ""}${cal} dB` : ""}</div>
-      <div><span class="pl-k">結果</span>饋入點 <b>${cur.at(0).toFixed(1)} dBm</b> · ${two ? "中點" : "尾端"}（最差）<b>${cur.worst.toFixed(1)} dBm</b>
-        · 單端最大涵蓋長度 <b>${cur.maxOne > 0 ? fmtM(cur.maxOne) : "0（饋入點已低於門檻）"}</b></div>
+      <div><span class="pl-k">95%</span>饋入點 <b>${cur.p95.at(0).toFixed(1)} dBm</b> · ${two ? "中點" : "尾端"}（最弱）<b>${cur.p95.worst.toFixed(1)} dBm</b>
+        · 單端最大 <b>${lenTxt(cur.p95.maxOne)}</b></div>
+      <div><span class="pl-k">50%</span>饋入點 <b>${cur.p50.at(0).toFixed(1)} dBm</b> · ${two ? "中點" : "尾端"}（最弱）<b>${cur.p50.worst.toFixed(1)} dBm</b>
+        · 單端最大 <b>${lenTxt(cur.p50.maxOne)}</b></div>
     </div>
     ${renderLkSchematic(cur, L, two)}
     ${renderLkChart(cur, L, thr, two)}
-    <div class="calc-result-label" style="margin-top:12px">${esc(op)} 各頻段 · 電纜 ${fmtM(L)} ${two ? "雙端" : "單端"}饋入</div>
+    <div class="calc-result-label" style="margin-top:12px">${esc(op)} 各頻段 · 電纜 ${fmtM(L)} ${two ? "雙端" : "單端"}饋入 · 上 95%／下 50%</div>
     <div style="overflow-x:auto;margin:0 -14px;padding:0 14px 4px">
-    <table class="calc-table" style="min-width:560px">
+    <table class="calc-table" style="min-width:580px">
       <thead><tr>
         <th>頻段</th><th>MHz</th><th>衰減 dB/100m</th><th>耦合 dB</th>
-        <th>饋入點 dBm</th><th>最差點 dBm</th><th>涵蓋比例</th><th>單端最大長度</th>
+        <th>饋入點 dBm</th><th>最弱點 dBm</th><th>涵蓋比例</th><th>單端最大長度</th>
       </tr></thead>
       <tbody>${tRows}</tbody>
     </table></div>
@@ -2423,11 +2425,9 @@ function renderLeaky(ant) {
     </div>`;
 }
 
-let lkState = null;
-
 // 漏波電纜架構示意圖：設備 → Jumper／接頭 → 饋入點 ═ LCX ═ 饋入點（或終端負載），標出最弱點
 function renderLkSchematic(c, L, two) {
-  const W = 360, H = 196, xA = 52, xB = 308, yBox = 10, boxH = 32, yCab = 112;
+  const W = 360, H = 208, xA = 52, xB = 308, yBox = 10, boxH = 32, yCab = 112;
   const col = SIM_C[c.sp.grp || "LB"], t = simText, line = simLine;
   const xMid = (xA + xB) / 2;
   const fdTxt = `Jumper、接頭 ${c.fd.total.toFixed(1)} dB`;
@@ -2465,15 +2465,15 @@ function renderLkSchematic(c, L, two) {
     s += t(xB + 8, yCab - 12, "終端負載", { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
   }
 
-  // 點的標示：位置與 RSRP
+  // 點的標示：位置與 RSRP（95% 設計值／50% 中位數）
   const mark = (x, pos, name, weak) => {
-    const v = c.at(pos);
     if (weak) s += `<path d="M${x},${yCab + 7} l-5,9 h10 z" fill="${SIM_C.far}"/>`;
     else s += `<circle cx="${x}" cy="${yCab}" r="5" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2"/>`;
     const y0 = yCab + (weak ? 30 : 22);
     s += t(x, y0, name, { anchor: "middle", size: 9, fill: weak ? SIM_C.far : SIM_C.heading, weight: 600 });
     s += t(x, y0 + 12, `位置 ${fmtM(pos)}`, { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
-    s += t(x, y0 + 24, `${v.toFixed(1)} dBm`, { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
+    s += t(x, y0 + 24, `95% ${c.at(pos).toFixed(1)}`, { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
+    s += t(x, y0 + 36, `50% ${c.at50(pos).toFixed(1)}`, { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
   };
   mark(xA, 0, "A 端饋入點", false);
   if (two) {
@@ -2482,24 +2482,28 @@ function renderLkSchematic(c, L, two) {
   } else {
     mark(xB, L, "末端・最弱點", true);
   }
-  return `<div class="pl-title">架構示意 · ${two ? "雙端" : "單端"}饋入（RSRP 為該位置車廂內用戶）</div>
+  return `<div class="pl-title">架構示意 · ${two ? "雙端" : "單端"}饋入（RSRP dBm 為該位置車廂內用戶）</div>
     <div class="sim-svg-box" style="margin-bottom:10px">${s}</svg></div>`;
 }
 
+let lkState = null;
+
+// 沿線 RSRP：實線 95%（設計值）、虛線 50%（中位數）
 function renderLkChart(c, L, thr, two) {
   const W = 360, H = 200, l = 40, r = 12, t = 16, b = 30, N = 200;
   const pts = [];
-  for (let i = 0; i <= N; i++) { const x = L * i / N; pts.push([x, c.at(x)]); }
-  const vs = pts.map(p => p[1]);
+  for (let i = 0; i <= N; i++) { const x = L * i / N; pts.push([x, c.at(x), c.at50(x)]); }
+  const vs = pts.flatMap(p => [p[1], p[2]]);
   const yTop = Math.ceil(Math.max(...vs, thr) / 10) * 10;
   const yBot = Math.floor(Math.min(...vs, thr - 10) / 10) * 10;
   const X = x => l + x / L * (W - l - r);
   const Y = v => t + (yTop - v) / (yTop - yBot) * (H - t - b);
   const col = SIM_C[c.sp.grp || "LB"];
-  lkState = { at: c.at, L, X, Y, W, l, r, thr };
+  lkState = { at: c.at, at50: c.at50, L, X, Y, W, l, r, thr };
+  const path = k => pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[k]).toFixed(1)}`).join("");
 
   let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
-    aria-label="漏波電纜沿線 RSRP：饋入點 ${c.at(0).toFixed(1)} dBm，最差 ${c.worst.toFixed(1)} dBm">`;
+    aria-label="漏波電纜沿線 RSRP：95% 饋入點 ${c.at(0).toFixed(1)}、最弱 ${c.worst.toFixed(1)} dBm；50% 饋入點 ${c.at50(0).toFixed(1)} dBm">`;
   const yStep = (yTop - yBot) / 10 > 7 ? 20 : 10;
   for (let v = yBot; v <= yTop; v += yStep) {
     s += `<line x1="${l}" y1="${Y(v).toFixed(1)}" x2="${W - r}" y2="${Y(v).toFixed(1)}" stroke="#D8D0C6" stroke-width="0.6"/>`;
@@ -2514,15 +2518,20 @@ function renderLkChart(c, L, thr, two) {
   s += `<line x1="${l}" y1="${H - b}" x2="${W - r}" y2="${H - b}" stroke="${SIM_C.text3}" stroke-width="0.8"/>`;
   s += `<line x1="${l}" y1="${Y(thr).toFixed(1)}" x2="${W - r}" y2="${Y(thr).toFixed(1)}" stroke="${SIM_C.text2}" stroke-width="1" stroke-dasharray="4 3"/>`;
   s += simText(W - r - 2, Y(thr) - 4, `門檻 ${thr}`, { anchor: "end", size: 8.5, fill: SIM_C.text2 });
-  s += `<path d="${pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[1]).toFixed(1)}`).join("")}"
-    fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s += `<path d="${path(2)}" fill="none" stroke="${col}" stroke-width="1.6" stroke-dasharray="5 3" stroke-opacity="0.6"/>`;
+  s += `<path d="${path(1)}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
   // 饋入點
   [0, ...(two ? [L] : [])].forEach(x => {
     s += `<circle cx="${X(x).toFixed(1)}" cy="${Y(c.at(x)).toFixed(1)}" r="4" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2"/>`;
-    s += simText(X(x) + (x ? -6 : 6), Y(c.at(x)) - 7, "饋入", { anchor: x ? "end" : "start", size: 8.5, fill: SIM_C.heading, weight: 600 });
   });
+  // 圖例（左上）
+  s += `<line x1="${l + 6}" y1="${t + 7}" x2="${l + 20}" y2="${t + 7}" stroke="${col}" stroke-width="2"/>`;
+  s += simText(l + 23, t + 10, "95% 設計值", { size: 8.5, fill: SIM_C.text2 });
+  s += `<line x1="${l + 80}" y1="${t + 7}" x2="${l + 94}" y2="${t + 7}" stroke="${col}" stroke-width="1.6" stroke-dasharray="4 2" stroke-opacity="0.6"/>`;
+  s += simText(l + 97, t + 10, "50% 中位數", { size: 8.5, fill: SIM_C.text2 });
   s += `<line id="lkCross" x1="0" y1="${t}" x2="0" y2="${H - b}" stroke="${SIM_C.text2}" stroke-width="0.8" visibility="hidden"/>
     <circle id="lkDot" r="4" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2" visibility="hidden"/>
+    <circle id="lkDot50" r="3.5" fill="${SIM_C.halo}" stroke="${col}" stroke-width="1.5" visibility="hidden"/>
     <rect x="${l}" y="${t}" width="${W - l - r}" height="${H - t - b}" fill="transparent"
       onpointermove="lkHover(event)" onpointerdown="lkHover(event)" onpointerleave="lkHide()"/>`;
   return `<div class="pl-title">沿線 RSRP · ${esc(plTeleName(c.t))} ${c.f} MHz</div>
@@ -2532,22 +2541,23 @@ function renderLkChart(c, L, thr, two) {
 function lkHover(ev) {
   if (!lkState) return;
   const svg = document.querySelector("#lkChart svg").getBoundingClientRect();
-  const { at, L, X, Y, W, l, r, thr } = lkState;
+  const { at, at50, L, X, Y, W, l, r, thr } = lkState;
   const vx = (ev.clientX - svg.left) / svg.width * W;
   const x = Math.max(0, Math.min(L, (vx - l) / (W - l - r) * L));
-  const v = at(x), cx = X(x), cy = Y(v);
-  const cross = document.getElementById("lkCross"), dot = document.getElementById("lkDot");
-  cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.setAttribute("visibility", "visible");
-  dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.setAttribute("visibility", "visible");
+  const v = at(x), v50 = at50(x), cx = X(x);
+  const set = (id, a) => Object.entries(a).forEach(([k, val]) => document.getElementById(id).setAttribute(k, val));
+  set("lkCross", { x1: cx, x2: cx, visibility: "visible" });
+  set("lkDot", { cx, cy: Y(v), visibility: "visible" });
+  set("lkDot50", { cx, cy: Y(v50), visibility: "visible" });
   const tip = document.getElementById("lkTip");
-  tip.innerHTML = `距饋入點 <b>${fmtM(x)}</b><br>RSRP <b>${v.toFixed(1)} dBm</b>${v < thr ? " ⚠" : ""}`;
+  tip.innerHTML = `距饋入點 <b>${fmtM(x)}</b><br>95% <b>${v.toFixed(1)} dBm</b>${v < thr ? " ⚠" : ""}<br>50% <b>${v50.toFixed(1)} dBm</b>${v50 < thr ? " ⚠" : ""}`;
   tip.style.display = "block";
   const px = cx / W * svg.width;
   tip.style.left = `${Math.max(4, px > svg.width / 2 ? px - tip.offsetWidth - 10 : px + 10)}px`;
 }
 
 function lkHide() {
-  ["lkCross", "lkDot"].forEach(id => document.getElementById(id)?.setAttribute("visibility", "hidden"));
+  ["lkCross", "lkDot", "lkDot50"].forEach(id => document.getElementById(id)?.setAttribute("visibility", "hidden"));
   const tip = document.getElementById("lkTip");
   if (tip) tip.style.display = "none";
 }
