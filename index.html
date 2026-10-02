@@ -634,10 +634,10 @@
         </div>
         <div class="only-leaky">
           <div class="filter-group-tabs track-sub-tabs">
-            <div class="filter-group-tab active" onclick="setTrackSub('lcx', this)">漏波電纜</div>
+            <div class="filter-group-tab active" onclick="setTrackSub('lcx', this)">洩波電纜</div>
             <div class="filter-group-tab" onclick="setTrackSub('ant', this)">軌旁天線</div>
           </div>
-          <div class="calc-sub only-lcx">漏波電纜 · 規格取自「Antenna_Band_Spec」備註</div>
+          <div class="calc-sub only-lcx">洩波電纜 · 規格取自「Antenna_Band_Spec」備註</div>
           <div class="calc-sub only-ta">軌旁天線 · 增益與波束寬取自「Antenna_Band_Spec」</div>
           <div class="calc-row">
             <div class="calc-field">
@@ -646,7 +646,7 @@
             </div>
             <div class="calc-field only-lcx">
               <div class="calc-label">饋入方式</div>
-              <select class="calc-select" id="lkFeed" onchange="calcCoverage()"><option value="one">單端饋入</option><option value="two">雙端饋入（兩端同功率）</option></select>
+              <select class="calc-select" id="lkFeed" onchange="calcCoverage()"><option value="one">單端饋入</option><option value="two">雙端饋入・同一 Cell（功率相加）</option><option value="sep">雙端饋入・不同 Cell（取較強者）</option></select>
             </div>
           </div>
           <div class="calc-row">
@@ -1422,13 +1422,13 @@ function toggleCalc() {
   toggle.classList.toggle("open", !isOpen);
 }
 
-// 漏波電纜模式只列出有漏波電纜規格的型號，另加「自訂」
+// 洩波電纜模式只列出有洩波電纜規格的型號，另加「自訂」
 function buildCalcSelect() {
   const sel = document.getElementById("calcAntenna");
   const prev = sel.value;
   const leaky = calcMode === "leaky" && trackSub === "lcx";
-  document.getElementById("calcAntLabel").textContent = leaky ? "漏波電纜型號" : "天線型號";
-  sel.innerHTML = `<option value="">${leaky ? "— 請選擇漏波電纜 —" : "— 請選擇天線 —"}</option>`;
+  document.getElementById("calcAntLabel").textContent = leaky ? "洩波電纜型號" : "天線型號";
+  sel.innerHTML = `<option value="">${leaky ? "— 請選擇洩波電纜 —" : "— 請選擇天線 —"}</option>`;
   const lk = new Set(leakyNames());
   const names = leaky ? [...lk] : masterData.map(a => a.Antenna_Name).filter(n => calcMode !== "leaky" || !lk.has(n));
   names.forEach(n => {
@@ -1473,7 +1473,7 @@ function fmtM(m) {
 
 let calcMode = "ground"; // "ground" | "high" | "leaky"
 
-// 軌道沿線的子模式："lcx" 漏波電纜 | "ant" 軌旁天線
+// 軌道沿線的子模式："lcx" 洩波電纜 | "ant" 軌旁天線
 let trackSub = "lcx";
 
 function setTrackSub(sub, el) {
@@ -1490,7 +1490,7 @@ function setCalcMode(mode, el) {
   document.getElementById("calcInner").dataset.mode = mode;
   document.querySelectorAll(".calc-mode-tabs .filter-group-tab").forEach(t => t.classList.remove("active"));
   el.classList.add("active");
-  if (switchList) buildCalcSelect();   // 進出漏波電纜模式時換型號清單（會一併重算）
+  if (switchList) buildCalcSelect();   // 進出洩波電纜模式時換型號清單（會一併重算）
   else calcCoverage();
 }
 
@@ -2337,7 +2337,7 @@ function plHide() {
 }
 
 // ═══════════════════════════════════════════════
-// 漏波電纜：RSRP = RS 功率 − 饋入損耗 − 縱向衰減 × 距饋入點長度 − 耦合損耗
+// 洩波電纜：RSRP = RS 功率 − 饋入損耗 − 縱向衰減 × 距饋入點長度 − 耦合損耗
 //          − 20·log10(d / 2 m) − 穿透 − 人體 + 實測校正
 // 規格解析自 Antenna_Band_Spec 的 Notes，例如
 //   「Attenuation 2.1~2.2 dB/100m; coupling loss (2 m) 50% 78~79 dB, 95% 88~89 dB」
@@ -2383,7 +2383,8 @@ function renderLeaky(ant) {
       src: `${r.lo}–${r.hi} MHz：衰減 ${fmtR(r.att)} dB/100m、耦合 95% ${fmtR(r.c95)}、50% ${fmtR(r.c50)} dB` };
   };
 
-  const L = Math.max(1, numVal("lkLen") || 0), two = document.getElementById("lkFeed").value === "two";
+  const L = Math.max(1, numVal("lkLen") || 0), feed = document.getElementById("lkFeed").value;
+  const two = feed !== "one", sep = feed === "sep";   // sep：兩端為不同 Cell，不做功率合成
   const dh = (numVal("lkCabH") || 0) - (numVal("lkUeH") || 0);
   const dx = Math.max(numVal("lkDist") || 0, 0.1);
   const d = Math.hypot(dx, dh), dCorr = 20 * Math.log10(d / 2);
@@ -2400,7 +2401,8 @@ function renderLeaky(ant) {
     const line = cl => {
       const base = head - cl;                                          // 饋入點旁（x = 0）的單端 RSRP
       const one = x => base - sp.att * x / 100;
-      const at = x => two ? 10 * Math.log10(10 ** (one(x) / 10) + 10 ** (one(L - x) / 10)) : one(x);
+      const at = x => !two ? one(x) : sep ? Math.max(one(x), one(L - x))
+        : 10 * Math.log10(10 ** (one(x) / 10) + 10 ** (one(L - x) / 10));
       let ok = 0;
       for (let i = 0; i <= 200; i++) if (at(L * i / 200) >= thr) ok++;
       return { at, worst: two ? at(L / 2) : at(L), maxOne: Math.max(0, (base - thr) / sp.att * 100), frac: ok / 201 };
@@ -2436,13 +2438,13 @@ function renderLeaky(ant) {
     ＋ ${fd.n} × ${fd.per} Connector ＋ 其他 ${fd.other} = <b>${fd.total.toFixed(2)} dB</b>`;
   const warns = [];
   if (cur.sp.out) warns.push(`${cur.f} MHz 不在電纜規格頻段內，取最近一列`);
-  if (cur.f > 2700) warns.push("超出此類漏波電纜 50–2700 MHz 的工作頻段");
+  if (cur.f > 2700) warns.push("超出此類洩波電纜 50–2700 MHz 的工作頻段");
   warns.push("耦合損耗為 2 m 量測值；95% 為設計值（沿線 95% 位置優於此值），50% 為中位數，兩者都未另扣陰影餘量");
   warns.push("車廂穿透、人體損耗為經驗值，建議以車上實測校正");
   const lenTxt = v => v > 0 ? fmtM(v) : "0";
 
   return `
-    <div class="calc-result-label">漏波電纜 RSRP · ${esc(plTeleLabel(tele))} · 門檻 ${thr} dBm</div>
+    <div class="calc-result-label">洩波電纜 RSRP · ${esc(plTeleLabel(tele))} · 門檻 ${thr} dBm</div>
     <div class="pl-sum">
       <div><span class="pl-k">頻譜</span>${esc(plTeleLabel(tele))} · ${tele.bw} MHz · ${tele.prb} PRB</div>
       <div><span class="pl-k">RS 功率</span>${port} − 10·log10(12×${tele.prb}) ${boost >= 0 ? "+" : "−"} ${Math.abs(boost)} = <b>${cur.rs.toFixed(2)} dBm</b></div>
@@ -2456,7 +2458,7 @@ function renderLeaky(ant) {
       <div><span class="pl-k">50%</span>饋入點 <b>${cur.p50.at(0).toFixed(1)} dBm</b> · ${two ? "中點" : "尾端"}（最弱）<b>${cur.p50.worst.toFixed(1)} dBm</b>
         · 單端最大 <b>${lenTxt(cur.p50.maxOne)}</b></div>
     </div>
-    ${renderLkSchematic(cur, L, two)}
+    ${renderLkSchematic(cur, L, two, sep)}
     ${renderLkChart(cur, L, thr, two)}
     <div class="calc-result-label" style="margin-top:12px">${esc(op)} 各頻段 · 電纜 ${fmtM(L)} ${two ? "雙端" : "單端"}饋入 · 上 95%／下 50%</div>
     <div style="overflow-x:auto;margin:0 -14px;padding:0 14px 4px">
@@ -2470,76 +2472,110 @@ function renderLeaky(ant) {
     <div class="pl-warn">⚠ ${warns.join("；")}</div>
     <div style="margin-top:6px;font-family:var(--font-mono);font-size:9px;color:var(--text3);line-height:1.7">
       RSRP = RS 功率 − 饋入損耗 − 縱向衰減 × 距饋入點長度 − 耦合損耗 − 20·log10(d / 2 m) − 穿透 − 人體 + 實測校正<br>
-      雙端饋入：兩端同功率，RSRP 以功率相加；單端最大長度 = (饋入點 RSRP − 門檻) / 縱向衰減
+      雙端饋入：兩端同功率；同一 Cell 以功率相加，不同 Cell 取較強者（不做功率合成）；單端最大長度 = (饋入點 RSRP − 門檻) / 縱向衰減
     </div>`;
 }
 
-// 漏波電纜架構示意圖：設備 → Jumper／接頭 → 饋入點 ═ LCX ═ 饋入點（或終端負載），標出最弱點
-function renderLkSchematic(c, L, two) {
-  const W = 360, H = 208, xA = 52, xB = 308, yBox = 10, boxH = 32, yCab = 112;
-  const col = SIM_C[c.sp.grp || "LB"], t = simText, line = simLine;
-  const xMid = (xA + xB) / 2;
-  const fdTxt = `Jumper、接頭 ${c.fd.total.toFixed(1)} dB`;
+// 洩波電纜架構示意圖：BBU → RRU／Repeater → Jumper／接頭 → 饋入點 A ═ LCX ═ 饋入點 B ← RRU ← BBU（單端時末端接終端負載）
+const LK_RF = "#B5524A", LK_CAB = "#E6B7B0";
+function renderLkSchematic(c, L, two, sep) {
+  const W = 380, H = 206, yC = 58, xA = 128, xB = 252, xMid = (xA + xB) / 2;
+  const t = simText, line = simLine;
+  const box = (x, w, h, lines) => {
+    let r = `<rect x="${x}" y="${yC - h / 2}" width="${w}" height="${h}" rx="4" fill="${SIM_C.halo}" stroke="${SIM_C.LB}" stroke-width="1.3"/>`;
+    lines.forEach((l, i) => r += t(x + w / 2, yC + 3.5 + (i - (lines.length - 1) / 2) * 11, l, { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 }));
+    return r;
+  };
+  const arrow = (x1, x2, col) => {
+    const d = x2 > x1 ? 1 : -1;
+    return line(x1, yC, x2 - d * 4, yC, col, 1.6) + `<path d="M${x2},${yC} l${-d * 6},-4 v8 z" fill="${col}"/>`;
+  };
+  const dot = x => `<circle cx="${x}" cy="${yC}" r="5.5" fill="${LK_RF}" stroke="${SIM_C.halo}" stroke-width="1.5"/>`;
+  const fdTxt = `${c.fd.total.toFixed(1)} dB`;
   let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
-    aria-label="漏波電纜架構：${two ? "雙端" : "單端"}饋入，長度 ${fmtM(L)}，最弱點 ${fmtM(two ? L / 2 : L)}">
+    aria-label="洩波電纜架構：${two ? `雙端饋入（${sep ? "不同" : "同一"} Cell）` : "單端饋入"}，長度 ${fmtM(L)}，最弱點 ${fmtM(two ? L / 2 : L)}">
     <rect x="0" y="0" width="${W}" height="${H}" fill="${SIM_C.skyBot}"/>`;
 
-  // 設備（RRU／Repeater）與 Jumper
-  const equip = (x, name) => {
-    s += `<rect x="${x - 44}" y="${yBox}" width="88" height="${boxH}" rx="5" fill="${SIM_C.halo}" stroke="${SIM_C.tower}" stroke-width="1.2"/>`;
-    s += t(x, yBox + 13, name, { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
-    s += t(x, yBox + 25, "RRU／Repeater", { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
-    s += line(x, yBox + boxH, x, yCab - 6, SIM_C.tower, 1.6);
-    s += `<rect x="${x - 3}" y="${(yBox + boxH + yCab) / 2 - 4}" width="6" height="8" fill="${SIM_C.tower}"/>`;
-  };
-  equip(xA, "A 端設備");
-  s += t(xA + 8, (yBox + boxH + yCab) / 2 + 3, fdTxt, { size: 8.5, fill: SIM_C.text2 });
+  // A 端：BBU → RRU → Jumper／接頭 → 饋入點 A
+  s += box(4, 32, 24, ["BBU"]) + arrow(36, 46, SIM_C.LB) + box(46, 54, 32, ["RRU /", "Repeater"]);
+  s += line(100, yC, xA, yC, LK_RF, 2.2) + line(113, yC - 5, 113, yC + 5, LK_RF, 1.4);
+  s += t(113, yC + 17, "Jumper/", { anchor: "middle", size: 8, fill: SIM_C.text2 });
+  s += t(113, yC + 27, "接頭損耗", { anchor: "middle", size: 8, fill: SIM_C.text2 });
+  s += t(113, yC + 37, fdTxt, { anchor: "middle", size: 8, fill: SIM_C.heading, weight: 600 });
+
+  // LCX 本體（中間標出最弱點／中點）
+  s += `<rect x="${xA}" y="${yC - 5}" width="${xB - xA}" height="10" rx="5" fill="${LK_CAB}" stroke="${LK_RF}" stroke-width="1"/>`;
+  s += t(xMid, yC - 22, "洩波電纜（LCX）", { anchor: "middle", size: 9.5, fill: SIM_C.heading, weight: 600 });
+  s += t(xA, yC - 10, "饋入點 A", { anchor: "middle", size: 8.5, fill: SIM_C.heading, weight: 600 });
+  s += dot(xA);
   if (two) {
-    equip(xB, "B 端設備");
-    s += t(xB - 8, (yBox + boxH + yCab) / 2 + 3, fdTxt, { anchor: "end", size: 8.5, fill: SIM_C.text2 });
-  }
-
-  // LCX：雙線表示電纜，上方短斜線表示沿線漏出的信號
-  s += `<line x1="${xA}" y1="${yCab - 2}" x2="${xB}" y2="${yCab - 2}" stroke="${col}" stroke-width="2"/>
-    <line x1="${xA}" y1="${yCab + 2}" x2="${xB}" y2="${yCab + 2}" stroke="${col}" stroke-width="2"/>`;
-  for (let x = xA + 14; x < xB - 8; x += 16) {
-    if (Math.abs(x - xMid) < 30) continue;
-    s += line(x, yCab - 6, x + 4, yCab - 14, col, 1, "");
-  }
-  s += t(xMid, yCab - 10, `LCX ${fmtM(L)} · ${c.sp.att.toFixed(2)} dB/100m`, { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
-
-  // 單端：末端接終端負載
-  if (!two) {
-    s += `<rect x="${xB}" y="${yCab - 7}" width="16" height="14" rx="2" fill="${SIM_C.tower}"/>`;
-    s += t(xB + 8, yCab - 12, "終端負載", { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
-  }
-
-  // 點的標示：位置與 RSRP（95% 設計值／50% 中位數）
-  const mark = (x, pos, name, weak) => {
-    if (weak) s += `<path d="M${x},${yCab + 7} l-5,9 h10 z" fill="${SIM_C.far}"/>`;
-    else s += `<circle cx="${x}" cy="${yCab}" r="5" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2"/>`;
-    const y0 = yCab + (weak ? 30 : 22);
-    s += t(x, y0, name, { anchor: "middle", size: 9, fill: weak ? SIM_C.far : SIM_C.heading, weight: 600 });
-    s += t(x, y0 + 12, `位置 ${fmtM(pos)}`, { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
-    s += t(x, y0 + 24, `95% ${c.at(pos).toFixed(1)}`, { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
-    s += t(x, y0 + 36, `50% ${c.at50(pos).toFixed(1)}`, { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
-  };
-  mark(xA, 0, "A 端饋入點", false);
-  if (two) {
-    mark(xB, L, "B 端饋入點", false);
-    mark(xMid, L / 2, "最弱點", true);
+    s += `<circle cx="${xMid}" cy="${yC}" r="4" fill="${LK_RF}"/>`;
+    s += t(xB, yC - 10, "饋入點 B", { anchor: "middle", size: 8.5, fill: SIM_C.heading, weight: 600 }) + dot(xB);
+    s += line(xB, yC, 280, yC, LK_RF, 2.2) + line(267, yC - 5, 267, yC + 5, LK_RF, 1.4);
+    s += t(267, yC + 17, "Jumper/", { anchor: "middle", size: 8, fill: SIM_C.text2 });
+    s += t(267, yC + 27, "接頭損耗", { anchor: "middle", size: 8, fill: SIM_C.text2 });
+    s += t(267, yC + 37, fdTxt, { anchor: "middle", size: 8, fill: SIM_C.heading, weight: 600 });
+    s += box(280, 54, 32, ["RRU /", "Repeater"]) + arrow(344, 334, SIM_C.LB) + box(344, 32, 24, ["BBU"]);
   } else {
-    mark(xB, L, "末端・最弱點", true);
+    s += `<rect x="${xB}" y="${yC - 7}" width="16" height="14" rx="2" fill="${SIM_C.tower}"/>`;
+    s += t(xB + 8, yC - 11, "終端負載", { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
   }
-  return `<div class="pl-title">架構示意 · ${two ? "雙端" : "單端"}饋入（RSRP dBm 為該位置車廂內用戶）</div>
+
+  // 尺寸線：縱向衰減 α
+  const yD = yC + 48;
+  s += line(xA, yD, xB, yD, SIM_C.text2, 0.9) + line(xA, yD - 4, xA, yD + 4, SIM_C.text2, 0.9) + line(xB, yD - 4, xB, yD + 4, SIM_C.text2, 0.9);
+  s += `<path d="M${xA},${yD} l6,-3 v6 z M${xB},${yD} l-6,-3 v6 z" fill="${SIM_C.text2}"/>`;
+  s += t(xMid, yD + 13, `縱向衰減 α ${c.sp.att.toFixed(2)} dB/100 m`, { anchor: "middle", size: 8.5, fill: SIM_C.heading });
+  s += t(xMid, yD + 24, `長度 ${fmtM(L)}`, { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
+
+  // 各點 RSRP（車廂內用戶）：95% 設計值／50% 中位數
+  const yR = yD + 42;
+  const cell = (x, name, pos, weak) => {
+    s += t(x, yR, name, { anchor: "middle", size: 9, fill: weak ? SIM_C.far : SIM_C.heading, weight: 600 });
+    s += t(x, yR + 12, `${fmtM(pos)}`, { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
+    s += t(x, yR + 24, `95% ${c.at(pos).toFixed(1)}`, { anchor: "middle", size: 9, fill: SIM_C.heading, weight: 600 });
+    s += t(x, yR + 36, `50% ${c.at50(pos).toFixed(1)}`, { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
+  };
+  s += t(8, yR + 24, "RSRP", { size: 8.5, fill: SIM_C.text2 }) + t(8, yR + 36, "dBm", { size: 8.5, fill: SIM_C.text2 });
+  cell(xA - 40, "饋入點 A", 0, false);
+  if (two) { cell(xMid, "中點・最弱", L / 2, true); cell(xB + 40, "饋入點 B", L, false); }
+  else cell(xB + 40, "末端・最弱", L, true);
+
+  s += t(W / 2, H - 6, two ? `（雙端饋入，兩端${sep ? "為不同 Cell，取較強者" : "為同一 Cell，功率相加"}）` : "（單端饋入，末端接終端負載）",
+    { anchor: "middle", size: 8.5, fill: SIM_C.text2 });
+  return `<div class="pl-title">系統架構與訊號路徑</div>
     <div class="sim-svg-box" style="margin-bottom:10px">${s}</svg></div>`;
+}
+
+// 曲線圖下方的列車位置條：預設停在最弱點，游標移動時跟著走
+function trainSvg(p, cx, y, txt, W) {
+  const anchor = cx < 70 ? "start" : cx > W - 70 ? "end" : "middle";
+  return `<text id="${p}TrainTxt" x="${cx.toFixed(1)}" y="${y - 12}" font-size="8.5" fill="${SIM_C.heading}" font-weight="600"
+      text-anchor="${anchor}" stroke="${SIM_C.halo}" stroke-width="3" stroke-linejoin="round" paint-order="stroke">${txt}</text>
+    <g id="${p}Train" data-y="${y}" transform="translate(${cx.toFixed(1)},${y})">
+      <path d="M-26,-8 H8 Q22,-8 27,1 H-26 Z" fill="${SIM_C.halo}" stroke="${SIM_C.heading}" stroke-width="1"/>
+      <line x1="-26" y1="-1" x2="25" y2="-1" stroke="${SIM_C.LB}" stroke-width="1.5"/>
+      ${[-22, -15, -8, -1].map(x => `<rect x="${x}" y="-6" width="5" height="3" rx="0.5" fill="${SIM_C.LB}"/>`).join("")}
+      <rect x="5" y="-6" width="7" height="3" rx="1" fill="${SIM_C.LB}"/>
+      <line x1="0" y1="1" x2="0" y2="6" stroke="${SIM_C.heading}" stroke-width="1"/>
+    </g>`;
+}
+
+function moveTrain(p, cx, txt, W) {
+  const g = document.getElementById(`${p}Train`);
+  if (g) g.setAttribute("transform", `translate(${cx.toFixed(1)},${g.dataset.y})`);
+  const el = document.getElementById(`${p}TrainTxt`);
+  if (!el) return;
+  el.setAttribute("x", cx.toFixed(1));
+  el.setAttribute("text-anchor", cx < 70 ? "start" : cx > W - 70 ? "end" : "middle");
+  el.textContent = txt;
 }
 
 let lkState = null;
 
 // 沿線 RSRP：實線 95%（設計值）、虛線 50%（中位數）
 function renderLkChart(c, L, thr, two) {
-  const W = 360, H = 200, l = 40, r = 12, t = 16, b = 30, N = 200;
+  const W = 360, H = 262, l = 40, r = 12, t = 16, b = 92, N = 200;
   const pts = [];
   for (let i = 0; i <= N; i++) { const x = L * i / N; pts.push([x, c.at(x), c.at50(x)]); }
   const vs = pts.flatMap(p => [p[1], p[2]]);
@@ -2549,10 +2585,11 @@ function renderLkChart(c, L, thr, two) {
   const Y = v => t + (yTop - v) / (yTop - yBot) * (H - t - b);
   const col = SIM_C[c.sp.grp || "LB"];
   lkState = { at: c.at, at50: c.at50, L, X, Y, W, l, r, thr };
+  const wx = two ? L / 2 : L;
   const path = k => pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[k]).toFixed(1)}`).join("");
 
   let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img"
-    aria-label="漏波電纜沿線 RSRP：95% 饋入點 ${c.at(0).toFixed(1)}、最弱 ${c.worst.toFixed(1)} dBm；50% 饋入點 ${c.at50(0).toFixed(1)} dBm">`;
+    aria-label="洩波電纜沿線 RSRP：95% 饋入點 ${c.at(0).toFixed(1)}、最弱 ${c.worst.toFixed(1)} dBm；50% 饋入點 ${c.at50(0).toFixed(1)} dBm">`;
   const yStep = (yTop - yBot) / 10 > 7 ? 20 : 10;
   for (let v = yBot; v <= yTop; v += yStep) {
     s += `<line x1="${l}" y1="${Y(v).toFixed(1)}" x2="${W - r}" y2="${Y(v).toFixed(1)}" stroke="#D8D0C6" stroke-width="0.6"/>`;
@@ -2567,6 +2604,14 @@ function renderLkChart(c, L, thr, two) {
   s += `<line x1="${l}" y1="${H - b}" x2="${W - r}" y2="${H - b}" stroke="${SIM_C.text3}" stroke-width="0.8"/>`;
   s += `<line x1="${l}" y1="${Y(thr).toFixed(1)}" x2="${W - r}" y2="${Y(thr).toFixed(1)}" stroke="${SIM_C.text2}" stroke-width="1" stroke-dasharray="4 3"/>`;
   s += simText(W - r - 2, Y(thr) - 4, `門檻 ${thr}`, { anchor: "end", size: 8.5, fill: SIM_C.text2 });
+  // 列車位置條：電纜、饋入點與列車（預設停在最弱點）
+  const yC = H - b + 52;
+  s += `<line x1="${X(0)}" y1="${yC}" x2="${X(L)}" y2="${yC}" stroke="${LK_CAB}" stroke-width="5" stroke-linecap="round"/>`;
+  [[0, "A"], ...(two ? [[L, "B"]] : [])].forEach(([x, n]) => {
+    s += `<circle cx="${X(x)}" cy="${yC}" r="4" fill="${LK_RF}" stroke="${SIM_C.halo}" stroke-width="1.5"/>`;
+    s += simText(X(x), yC + 13, `饋入點 ${n}`, { anchor: "middle", size: 8, fill: SIM_C.text2 });
+  });
+  s += trainSvg("lk", X(wx), yC - 6, `列車 ${fmtM(wx)} · 95% ${c.at(wx).toFixed(1)} dBm`, W);
   s += `<path d="${path(2)}" fill="none" stroke="${col}" stroke-width="1.6" stroke-dasharray="5 3" stroke-opacity="0.6"/>`;
   s += `<path d="${path(1)}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
   // 饋入點
@@ -2581,7 +2626,7 @@ function renderLkChart(c, L, thr, two) {
   s += `<line id="lkCross" x1="0" y1="${t}" x2="0" y2="${H - b}" stroke="${SIM_C.text2}" stroke-width="0.8" visibility="hidden"/>
     <circle id="lkDot" r="4" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2" visibility="hidden"/>
     <circle id="lkDot50" r="3.5" fill="${SIM_C.halo}" stroke="${col}" stroke-width="1.5" visibility="hidden"/>
-    <rect x="${l}" y="${t}" width="${W - l - r}" height="${H - t - b}" fill="transparent"
+    <rect x="${l}" y="${t}" width="${W - l - r}" height="${H - t - 20}" fill="transparent"
       onpointermove="lkHover(event)" onpointerdown="lkHover(event)" onpointerleave="lkHide()"/>`;
   return `<div class="pl-title">沿線 RSRP · ${esc(plTeleName(c.t))} ${c.f} MHz</div>
     <div class="pl-chart" id="lkChart">${s}</svg><div class="pl-tip" id="lkTip"></div></div>`;
@@ -2599,7 +2644,8 @@ function lkHover(ev) {
   set("lkDot", { cx, cy: Y(v), visibility: "visible" });
   set("lkDot50", { cx, cy: Y(v50), visibility: "visible" });
   const tip = document.getElementById("lkTip");
-  tip.innerHTML = `距饋入點 <b>${fmtM(x)}</b><br>95% <b>${v.toFixed(1)} dBm</b>${v < thr ? " ⚠" : ""}<br>50% <b>${v50.toFixed(1)} dBm</b>${v50 < thr ? " ⚠" : ""}`;
+  moveTrain("lk", cx, `列車 ${fmtM(x)} · 95% ${v.toFixed(1)} dBm`, W);
+  tip.innerHTML = `距饋入點 A <b>${fmtM(x)}</b><br>95% <b>${v.toFixed(1)} dBm</b>${v < thr ? " ⚠" : ""}<br>50% <b>${v50.toFixed(1)} dBm</b>${v50 < thr ? " ⚠" : ""}`;
   tip.style.display = "block";
   const px = cx / W * svg.width;
   tip.style.left = `${Math.max(4, px > svg.width / 2 ? px - tip.offsetWidth - 10 : px + 10)}px`;
@@ -2812,7 +2858,7 @@ let taState = null;
 
 // 沿線 RSRP：細線為各天線，粗線為服務電平（取最大值）
 function renderTaChart(c, ants, L, thr) {
-  const W = 360, H = 200, l = 40, r = 12, t = 16, b = 30, N = 200;
+  const W = 360, H = 262, l = 40, r = 12, t = 16, b = 92, N = 200;
   const pts = [];
   for (let i = 0; i <= N; i++) { const x = L * i / N, e = c.each(x); pts.push([x, Math.max(...e), ...e]); }
   const env = pts.map(p => p[1]);
@@ -2821,6 +2867,7 @@ function renderTaChart(c, ants, L, thr) {
   const X = x => l + x / L * (W - l - r);
   const Y = v => t + (yTop - Math.max(v, yBot)) / (yTop - yBot) * (H - t - b);
   const col = SIM_C[c.grp];
+  const line2 = (x1, y1, x2, y2) => simLine(x1, y1, x2, y2, SIM_C.tower, 1.2);
   taState = { c, L, X, Y, W, l, r, thr };
   const path = k => pts.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)},${Y(p[k]).toFixed(1)}`).join("");
 
@@ -2853,9 +2900,20 @@ function renderTaChart(c, ants, L, thr) {
     s += simText(Math.min(Math.max(px, l + 10), W - r - 10), Math.max(py, t + 8), `A${i + 1}`, { anchor: "middle", size: 8.5, fill: TA_COLS[i % TA_COLS.length], weight: 600 });
   });
   s += `<path d="M${X(c.wx).toFixed(1)},${(Y(c.worst) + 4).toFixed(1)} l-4,8 h8 z" fill="${SIM_C.far}"/>`;
+  // 列車位置條：軌道、天線位置與列車（預設停在最弱點）
+  const yC = H - b + 52;
+  s += line2(X(0), yC - 2, X(L), yC - 2) + line2(X(0), yC + 2, X(L), yC + 2);
+  ants.forEach((a, i) => {
+    if (a.x < 0 || a.x > L) return;
+    const col = TA_COLS[i % TA_COLS.length], ax = X(a.x);
+    s += `<rect x="${(ax - 3).toFixed(1)}" y="${yC + 5}" width="6" height="7" rx="1" fill="${col}"/>`;
+    s += `<path d="M${ax.toFixed(1)},${yC + 8.5} l${a.dir * 8},0" stroke="${col}" stroke-width="1.2"/>`;
+    s += simText(ax, yC + 22, `A${i + 1}`, { anchor: "middle", size: 8, fill: col, weight: 600 });
+  });
+  s += trainSvg("ta", X(c.wx), yC - 6, `列車 ${fmtM(c.wx)} · ${c.worst.toFixed(1)} dBm`, W);
   s += `<line id="taCross" x1="0" y1="${t}" x2="0" y2="${H - b}" stroke="${SIM_C.text2}" stroke-width="0.8" visibility="hidden"/>
     <circle id="taDot" r="4" fill="${col}" stroke="${SIM_C.halo}" stroke-width="2" visibility="hidden"/>
-    <rect x="${l}" y="${t}" width="${W - l - r}" height="${H - t - b}" fill="transparent"
+    <rect x="${l}" y="${t}" width="${W - l - r}" height="${H - t - 20}" fill="transparent"
       onpointermove="taHover(event)" onpointerdown="taHover(event)" onpointerleave="taHide()"/>`;
   return `<div class="pl-title">沿線 RSRP · ${esc(plTeleName(c.t))} ${c.f} MHz · 粗線 = 服務電平（各天線最大值）</div>
     <div class="pl-chart" id="taChart">${s}</svg><div class="pl-tip" id="taTip"></div></div>`;
@@ -2871,6 +2929,7 @@ function taHover(ev) {
   const set = (id, a) => Object.entries(a).forEach(([k, val]) => document.getElementById(id).setAttribute(k, val));
   set("taCross", { x1: cx, x2: cx, visibility: "visible" });
   set("taDot", { cx, cy: Y(v), visibility: "visible" });
+  moveTrain("ta", cx, `列車 ${fmtM(x)} · ${v.toFixed(1)} dBm`, W);
   const tip = document.getElementById("taTip");
   tip.innerHTML = `里程 <b>${fmtM(x)}</b><br>服務 A${si + 1} <b>${v.toFixed(1)} dBm</b>${v < thr ? " ⚠" : ""}<br>`
     + e.map((u, i) => `<span style="color:${TA_COLS[i % TA_COLS.length]}">A${i + 1}</span> ${u.toFixed(1)}`).join(" · ");
