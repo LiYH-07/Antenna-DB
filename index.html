@@ -306,7 +306,6 @@
     max-height: 0; overflow: hidden;
     transition: max-height 0.35s cubic-bezier(0.4,0,0.2,1);
   }
-  .calc-panel.open { max-height: 3000px; }
   .calc-inner {
     background: var(--bg2); border: 1px solid var(--border);
     border-top: none; border-radius: 0 0 var(--radius) var(--radius);
@@ -1420,6 +1419,15 @@ function toggleCalc() {
   const isOpen = panel.classList.contains("open");
   panel.classList.toggle("open", !isOpen);
   toggle.classList.toggle("open", !isOpen);
+  // 展開後解除高度上限，內容（反推表格、圖表）再長也不會被截掉；收合時先回到實際高度再動畫到 0
+  clearTimeout(panel._t);
+  panel.style.maxHeight = `${panel.scrollHeight}px`;
+  if (isOpen) {
+    panel.offsetHeight;
+    panel.style.maxHeight = "0px";
+  } else {
+    panel._t = setTimeout(() => { if (panel.classList.contains("open")) panel.style.maxHeight = "none"; }, 400);
+  }
 }
 
 // 洩波電纜模式只列出有洩波電纜規格的型號，另加「自訂」
