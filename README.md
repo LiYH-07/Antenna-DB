@@ -1,5 +1,7 @@
 # 📡 Antenna DB — 手機天線規格查詢工具
 
+> 📖 給使用者的簡易說明書：[使用說明.md](使用說明.md)。
+
 > 從 Google Sheets 讀取資料，部署在 GitHub Pages，手機瀏覽器直接查閱。
 
 ---
